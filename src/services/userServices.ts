@@ -196,23 +196,8 @@ query MyQuery($client_id: uuid!) {
 `,
       variables: { client_id },
     });
-console.log(response.data)
-    const modifyResponse = (response: any) => {
-  const originalData = response?.data?.data?.vocallabs_call_forwarding_agents_by_pk;
-  
-  if (originalData) {
-    return {
-      ...originalData.agent,
-      status: originalData.status // Move status inside agent object
-    };
-  }
-  return null;
-};
-const modifiedAgent = modifyResponse(response);
-console.log(modifiedAgent)
 
-    
-    return [modifiedAgent] || null;
+    return response
   } catch (error) {
     console.error('Error fetching call forwarding mappings:', error);
     throw new Error('Failed to fetch call forwarding mappings.');
@@ -244,6 +229,9 @@ console.log(response)
     throw new Error('Failed to save call forwarding mapping.');
   }
 };
+
+
+
 export const setCallForwarding = async (
   client_id: string
 ) => {

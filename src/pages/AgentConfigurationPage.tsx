@@ -3,25 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCcw, User, PhoneCall, Power } from 'lucide-react';
 import SidePanel from '../components/SidePanel';
 import { useAuthStore } from '../store/authStore';
-import { updateAgentStatus, setCallForwarding } from '../services/userServices';
+import {
+  updateAgentStatus,
+  setCallForwarding,
+  fetchPreviousMappings,
+} from '../services/userServices';
 import { toast } from 'react-hot-toast';
 
 // Types
 interface Agent {
-  agent_id: string;
-  agent?: {
-    name: string;
-  };
+  id: string; // We'll map agent_id -> id
+  name: string; // We'll map agent.name -> name
   status: string;
-}
-
-interface User {
-  id: string;
 }
 
 // Helper function to detect mobile devices
 function isMobileDevice() {
-  return /Android|iPhone|iPod|iPad|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+  return /Android|iPhone|iPod|iPad|Opera Mini|IEMobile|WPDesktop/i.test(
+    navigator.userAgent
+  );
 }
 
 const AgentConfigurationPage: React.FC = () => {
@@ -32,29 +32,78 @@ const AgentConfigurationPage: React.FC = () => {
   const [localAgent, setLocalAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>('');
   const [isStatusChanged, setIsStatusChanged] = useState(false);
-  const [isCallForwardingInitialized, setIsCallForwardingInitialized] = useState(false);
+  const [isCallForwardingInitialized, setIsCallForwardingInitialized] =
+    useState(false);
   const [forwardingTelLink, setForwardingTelLink] = useState<string>('');
 
-  // Load agent data from localStorage on component mount
+  /**
+   * On component mount:
+   * 1) Try fetching the agent from server (fetchPreviousMappings).
+   * 2) If server returns an agent, use it.
+   * 3) Otherwise, fall back to localStorage.
+   * 4) Check if callForwardingInitialized is set in localStorage.
+   */
   useEffect(() => {
-    try {
-      const storedAgent = localStorage.getItem('forwardingAgent');
-      console.log(storedAgent)
-      if (storedAgent) {
-        const parsedAgent = JSON.parse(storedAgent);
-        if (parsedAgent && parsedAgent.id) {
-          setLocalAgent(parsedAgent);
-          setStatus(parsedAgent.status || '');
+    (async () => {
+      try {
+        const data = await fetchPreviousMappings(user.id);
+        // Example data structure:
+        // {
+        //   "data": {
+        //     "vocallabs_call_forwarding_agents_by_pk": {
+        //       "agent_id": "17d207c9-...",
+        //       "status": "unavailable",
+        //       "agent": {
+        //         "name": "Jane",
+        //         "id": "17d207c9-..."
+        //       }
+        //     }
+        //   }
+        // }
+        const serverAgent = data?.data?.data?.vocallabs_call_forwarding_agents_by_pk;
+
+        console.log(serverAgent?.agent, '😂');
+
+        if (serverAgent) {
+          // If the server returned an agent, map it to our localAgent shape
+          const mappedAgent: Agent = {
+            id: serverAgent.agent?.id,
+            name: serverAgent.agent?.name || 'Unknown Agent',
+            status: serverAgent.status,
+          };
+          setLocalAgent(mappedAgent);
+          setStatus(mappedAgent.status || '');
+        } else {
+          // If serverAgent is null, fallback to localStorage
+          const storedAgent = localStorage.getItem('forwardingAgent');
+          if (storedAgent) {
+            const parsedAgent = JSON.parse(storedAgent);
+            if (parsedAgent && parsedAgent.id) {
+              setLocalAgent(parsedAgent);
+              setStatus(parsedAgent.status || '');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching agent from server:', error);
+        toast.error('Failed to fetch agent from server. Falling back to local storage.');
+
+        // Fallback to localStorage if server fails
+        const storedAgent = localStorage.getItem('forwardingAgent');
+        if (storedAgent) {
+          const parsedAgent = JSON.parse(storedAgent);
+          if (parsedAgent && parsedAgent.id) {
+            setLocalAgent(parsedAgent);
+            setStatus(parsedAgent.status || '');
+          }
         }
       }
 
+      // Check if call forwarding is already initialized
       const forwardingFlag = localStorage.getItem('callForwardingInitialized');
       setIsCallForwardingInitialized(forwardingFlag === '1');
-    } catch (error) {
-      console.error('Error parsing local storage:', error);
-      toast.error('Error loading agent configuration');
-    }
-  }, []);
+    })();
+  }, [user.id]);
 
   const handleStatusChange = (newStatus: string) => {
     setStatus(newStatus);
@@ -68,8 +117,10 @@ const AgentConfigurationPage: React.FC = () => {
     }
 
     try {
+      // We send localAgent.id to the backend
       await updateAgentStatus(user.id, localAgent.id, status);
 
+      // Update in local state & local storage
       const updatedAgent = { ...localAgent, status };
       setLocalAgent(updatedAgent);
       localStorage.setItem('forwardingAgent', JSON.stringify(updatedAgent));
@@ -87,15 +138,17 @@ const AgentConfigurationPage: React.FC = () => {
       const forwardingPhoneNumber = await setCallForwarding(user.id);
       if (forwardingPhoneNumber) {
         localStorage.setItem('callForwardingInitialized', '1');
-        setIsCallForwardingInitialized(true);
+        setIsCallForwardingInitialized(false);
         toast.success('Call forwarding initialized!');
 
         const telLink = `tel:${forwardingPhoneNumber}`;
         setForwardingTelLink(telLink);
 
         if (isMobileDevice()) {
+          // Auto-open dialer on mobile
           window.location.href = telLink;
         } else {
+          // Desktop fallback
           toast(`On desktop, please dial: ${forwardingPhoneNumber}`);
         }
       } else {
@@ -130,8 +183,8 @@ const AgentConfigurationPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/forwarding-agents')}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
-              transition-colors duration-200 ease-in-out shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg 
+              hover:bg-blue-700 transition-colors duration-200 ease-in-out shadow-sm"
           >
             <RefreshCcw className="h-5 w-5 mr-2" />
             Switch Forwarding Bot
@@ -141,97 +194,100 @@ const AgentConfigurationPage: React.FC = () => {
         {/* Main Content */}
         {localAgent ? (
           <div className="flex justify-center">
-            <div className="w-full max-w-xl bg-white/90 backdrop-blur-sm shadow-xl rounded-2xl border border-gray-100">
+            {/* Updated, more compact/elegant card styling */}
+            <div className="w-full max-w-md bg-white/90 backdrop-blur-sm shadow-md rounded-xl border border-gray-100 p-4 space-y-4">
               {/* Header */}
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 
-                    flex items-center justify-center">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
-                      {localAgent.name || 'Unknown Agent'}
-                    </h2>
-                    <p className="text-[12px] text-gray-500">ID: {localAgent.id}</p>
-                    <p className="text-[12px] text-gray-500">status: {localAgent.status}</p>
-                  </div>
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+                <div
+                  className="h-10 w-10 rounded-full bg-gradient-to-br 
+                    from-blue-500 to-blue-600 flex items-center justify-center"
+                >
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base font-semibold text-gray-900">
+                    {localAgent.name || 'Unknown Agent'}
+                  </h2>
+                  <p className="text-[11px] text-gray-500">UUID: {localAgent.id}</p>
+                  <p className="text-[11px] text-gray-500">
+                    Use Case: {localAgent.status}
+                  </p>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6 space-y-6">
+              <div className="space-y-4">
                 {/* Status Section */}
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Agent Use Case
                   </label>
                   <select
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg 
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md
+                      focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     value={status}
                     onChange={(e) => handleStatusChange(e.target.value)}
                   >
                     <option value="">Select Use Case</option>
                     <option value="busy">Busy</option>
-                    <option value="switched_off">Switched Off</option>
                     <option value="unavailable">Unavailable</option>
+                    <option value="out_of_reach">Out Of Reach</option>
                   </select>
 
                   <button
                     onClick={handleSaveStatus}
                     disabled={!isStatusChanged}
-                    className={`w-full p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 
-                      text-white font-medium transform transition-all hover:translate-y-[-1px] 
-                      hover:shadow-lg ${!isStatusChanged && 
-                      'opacity-50 cursor-not-allowed from-gray-400 to-gray-500'}`}
+                    className={`w-full p-2 rounded-md bg-gradient-to-r 
+                      from-blue-500 to-blue-600 text-white text-sm font-medium transform transition-all 
+                      hover:translate-y-[-1px] hover:shadow-lg ${
+                        !isStatusChanged &&
+                        'opacity-50 cursor-not-allowed from-gray-400 to-gray-500'
+                      }`}
                   >
                     Save Use Case
                   </button>
                 </div>
 
                 {/* Divider */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Call Forwarding</span>
-                  </div>
+                <div className="relative flex items-center justify-center">
+                  <span className="absolute bg-white px-2 text-xs text-gray-500">
+                    Call Forwarding
+                  </span>
+                  <div className="w-full border-t border-gray-200 mt-3"></div>
                 </div>
 
                 {/* Call Forwarding Section */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {!isCallForwardingInitialized ? (
                     <button
                       onClick={handleInitializeCallForwarding}
-                      className="w-full p-3 rounded-lg bg-green-500 text-white font-medium 
-                        flex items-center justify-center space-x-2 hover:bg-green-600 
+                      className="w-full p-2 rounded-md bg-green-500 text-white text-sm font-medium 
+                        flex items-center justify-center space-x-1 hover:bg-green-600 
                         transform transition-all hover:translate-y-[-1px] hover:shadow-lg"
                     >
-                      <PhoneCall className="h-5 w-5" />
+                      <PhoneCall className="h-4 w-4" />
                       <span>Initialize Call Forwarding</span>
                     </button>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <button
                         onClick={handleRemoveCallForwarding}
-                        className="w-full p-3 rounded-lg bg-red-500 text-white font-medium 
-                          flex items-center justify-center space-x-2 hover:bg-red-600 
+                        className="w-full p-2 rounded-md bg-red-500 text-white text-sm font-medium 
+                          flex items-center justify-center space-x-1 hover:bg-red-600 
                           transform transition-all hover:translate-y-[-1px] hover:shadow-lg"
                       >
-                        <Power className="h-5 w-5" />
+                        <Power className="h-4 w-4" />
                         <span>Remove Call Forwarding</span>
                       </button>
 
                       {forwardingTelLink && (
-                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                          <p className="text-sm text-blue-800 font-medium">
+                        <div className="p-3 bg-blue-50 rounded-md border border-blue-100 text-sm">
+                          <p className="text-blue-800 font-medium">
                             Desktop Dialing Instructions
                           </p>
                           <a
                             href={forwardingTelLink}
-                            className="text-blue-600 hover:text-blue-800 text-sm mt-1 block"
+                            className="text-blue-600 hover:text-blue-800 mt-1 block break-all"
                           >
                             {forwardingTelLink}
                           </a>
