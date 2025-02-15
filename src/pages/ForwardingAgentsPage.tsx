@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   PlusCircle,
   Search,
+  Pencil
 } from "lucide-react";
 import SidePanel from "../components/SidePanel";
 import { useAuthStore } from "../store/authStore";
@@ -15,46 +16,108 @@ import {
   fetchPreviousMappings,
 } from "../services/userServices";
 
+interface Agent {
+  id: string;
+  agent_id?: string;
+  name: string;
+  status: string;
+}
+
+interface AgentCardProps {
+  agent: Agent;
+  isForwarding: boolean;
+  onToggle: (agent: Agent) => void;
+  onEdit: (agent: Agent) => void;
+}
+
+const AgentCard: React.FC<AgentCardProps> = ({
+  agent,
+  isForwarding,
+  onToggle,
+  onEdit,
+}) => {
+  return (
+    <div className="relative w-full transform transition-all duration-300 hover:scale-[1.02]">
+      <div
+        className={`relative bg-white rounded-xl overflow-hidden shadow-md ${
+          isForwarding ? "ring-2 ring-blue-500" : "border border-gray-200"
+        }`}
+      >
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/80 backdrop-blur-sm" />
+
+        <div className="relative p-4">
+          <div className="absolute top-3 right-3 flex items-center space-x-2">
+            <Bot className="h-4 w-4 text-gray-500" />
+            {isForwarding && <PhoneForwarded className="h-4 w-4 text-green-500" />}
+            <div className="relative group">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(agent);
+                }}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+              >
+                <Pencil className="h-4 w-4 text-blue-500" />
+              </button>
+              <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs py-1 px-2 rounded-md -right-2 top-8 whitespace-nowrap">
+                Edit Agent
+                <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-800 transform rotate-45" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-6">
+            <h3 className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {agent.name || "Unnamed Agent"}
+            </h3>
+            <p className="text-xs text-gray-500 break-all">{agent.id}</p>
+
+            <button
+              onClick={() => onToggle(agent)}
+              className={`w-full px-4 py-2 rounded-xl text-xs font-medium 
+                transition-all duration-200 ${
+                  isForwarding
+                    ? "bg-gradient-to-r from-rose-500 to-red-500 text-black hover:shadow-lg hover:shadow-rose-500/25"
+                    : "bg-indigo-200 text-black hover:shadow-lg hover:shadow-blue-500/25"
+                }`}
+            >
+              {isForwarding ? "Unset Forwarding" : "Set as Forwarding Agent"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ForwardingAgentsPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
-  // -- NEW: Search state
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchDataOnMount();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  /**
-   * Fetch once on mount:
-   * 1. getAgentsElseCreateOne for the agent list.
-   * 2. fetchPreviousMappings to see which agent is highlighted.
-   */
   const fetchDataOnMount = async () => {
     setLoading(true);
     try {
-      // 1) Grab the agent list
       let agentResponse = await getAgentsElseCreateOne(user.id);
       if (!Array.isArray(agentResponse)) {
         agentResponse = [agentResponse];
       }
 
-      // If your server returns { agent_id, name, status }, map to consistent .id
       const mappedAgents = agentResponse.map((ag: any) => ({
         ...ag,
         id: ag.agent_id ?? ag.id,
       }));
 
-      // 2) Check which agent is highlighted
       const highlightData = await fetchPreviousMappings(user.id);
-      // Possibly:
-      // highlightData?.data?.data?.vocallabs_call_forwarding_agents_by_pk
       const highlightObj =
         highlightData?.data?.data?.vocallabs_call_forwarding_agents_by_pk;
       const highlightId = highlightObj?.agent.id || null;
@@ -70,25 +133,22 @@ const ForwardingAgentsPage = () => {
     }
   };
 
-  // Toggle call forwarding locally
-  const toggleCallForwarding = async (agent: any) => {
+  const toggleCallForwarding = async (agent: Agent) => {
     try {
+      // Example log
+      console.log("Toggling agent: ", agent.id);
+      
+      // If user toggles the same agent, we un-forward
       if (selectedAgentId === agent.id) {
-        // Unset (status = "unavailable")
-        await updateAgentStatus(user.id, agent.id, "unavailable");
+        await updateAgentStatus(user.id, agent.id, "vi", "unavailable");
         setSelectedAgentId(null);
-
-        // Update local state
         setAgents((prev) =>
           prev.map((a) =>
             a.id === agent.id ? { ...a, status: "unavailable" } : a
           )
         );
       } else {
-        // Set this agent to "call_forwarding"
         await updateAgentStatus(user.id, agent.id, "call_forwarding");
-
-        // If only one agent can forward at a time, mark others "unavailable"
         setAgents((prev) =>
           prev.map((a) => {
             if (a.id === agent.id) {
@@ -103,15 +163,25 @@ const ForwardingAgentsPage = () => {
       }
     } catch (error) {
       console.error("Error toggling forwarding:", error);
-      // Optionally show a toast/error
     }
   };
 
-  // -- Filter agents by search query
+  // UPDATED: pass agent data through the "state" param in navigate()
+// Old approach:
+// navigate("/add-agent", {
+//   state: { agentToEdit: { id: agent.id, name: agent.name } },
+// });
+
+const handleEditAgent = (agent) => {
+  // New approach: store agent in localStorage
+  localStorage.setItem("agentToEdit", JSON.stringify({ id: agent.id, name: agent.name }));
+  navigate("/add-agent");
+};
+
+
   const filteredAgents = agents.filter((agent) => {
-    if (!searchQuery) return true; // no filtering if empty
+    if (!searchQuery) return true;
     const lowerQuery = searchQuery.toLowerCase();
-    // Match by name or ID
     return (
       agent.name?.toLowerCase().includes(lowerQuery) ||
       agent.id?.toLowerCase().includes(lowerQuery)
@@ -119,7 +189,7 @@ const ForwardingAgentsPage = () => {
   });
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <SidePanel />
 
       <div className="flex-1 p-4 md:p-8 lg:p-12">
@@ -135,7 +205,9 @@ const ForwardingAgentsPage = () => {
 
           <button
             onClick={() => navigate("/add-agent")}
-            className="btn-primary w-full sm:w-auto"
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 
+              text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200 
+              hover:-translate-y-0.5"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
             Add Agent
@@ -143,31 +215,36 @@ const ForwardingAgentsPage = () => {
         </div>
 
         {/* Title Section */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">📞 Forwarding Agents</h1>
-          <p className="mt-1 text-gray-600 text-sm md:text-base">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            📞 Forwarding Agents
+          </h1>
+          <p className="mt-2 text-gray-600 text-sm md:text-base">
             Select an agent to activate or unset call forwarding (no page reload).
           </p>
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="relative max-w-md mb-6">
-          <Search className="absolute top-3 left-3 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search agents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md 
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 
-              focus:border-transparent text-sm text-gray-700"
-          />
+        {/* Search Bar */}
+        <div className="relative max-w-md mb-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-lg -m-0.5 blur" />
+          <div className="relative">
+            <Search className="absolute top-3 left-3 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search agents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg
+                focus:outline-none focus:ring-2 focus:ring-blue-500 
+                focus:border-transparent text-sm text-gray-700"
+            />
+          </div>
         </div>
 
         {/* Content Section */}
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : filteredAgents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -178,13 +255,14 @@ const ForwardingAgentsPage = () => {
             </p>
             <button
               onClick={() => navigate("/add-agent")}
-              className="btn-secondary"
+              className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 
+                text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 
+                transition-all duration-200 hover:-translate-y-0.5"
             >
               Create Your First Agent
             </button>
           </div>
         ) : (
-          // 2 columns for mobile, 4 columns from "lg" and up
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredAgents.map((agent) => (
               <AgentCard
@@ -192,50 +270,11 @@ const ForwardingAgentsPage = () => {
                 agent={agent}
                 isForwarding={selectedAgentId === agent.id}
                 onToggle={toggleCallForwarding}
+                onEdit={handleEditAgent} 
               />
             ))}
           </div>
         )}
-      </div>
-    </div>
-  );
-};
-
-interface AgentCardProps {
-  agent: any;
-  isForwarding: boolean;
-  onToggle: (agent: any) => void;
-}
-
-const AgentCard: React.FC<AgentCardProps> = ({ agent, isForwarding, onToggle }) => {
-  return (
-    <div
-      className={`relative p-4 bg-indigo-50 border rounded-lg shadow-md cursor-pointer transition-all duration-200 
-        ${isForwarding ? "ring-2 ring-indigo-500" : "border-gray-200"}`}
-    >
-      <div className="absolute top-3 right-3 flex space-x-2">
-        <Bot className="text-gray-500" />
-        {isForwarding && <PhoneForwarded className="text-green-500" />}
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-gray-900">
-          {/* Show agent name if it exists */}
-          {agent.name || "Unnamed Agent"}
-        </h3>
-        <p className="text-xs text-gray-500 break-all">{agent.id}</p>
-
-        <button
-          onClick={() => onToggle(agent)}
-          className={`w-full px-4 py-2 rounded-md text-xs font-medium 
-            transition-all duration-200 ${
-              isForwarding
-                ? "bg-red-100 text-red-700 hover:bg-red-200"
-                : "bg-white text-gray-700 hover:bg-white"
-            }`}
-        >
-          {isForwarding ? "Unset Forwarding" : "Set as Forwarding Agent"}
-        </button>
       </div>
     </div>
   );

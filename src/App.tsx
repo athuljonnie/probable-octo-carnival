@@ -9,6 +9,7 @@ import { useAuthStore } from './store/authStore';
 import { useGoogleStore } from './store/googleStore';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
+import EditAgentPage from "./components/EditWrapper";
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -62,7 +63,7 @@ function App() {
 
           {/* Protected Routes */}
           <Route path="/agents" element={requireAuth(<AgentConfigurationPage />)} />
-          <Route path="/add-agent" element={requireAuth(<AddAgentPage />)} />
+   <Route path="/add-agent" element={requireAuth(<EditAgentPage />)} /> 
           <Route path="/forwarding-agents" element={requireAuth(<ForwardingAgentsPage />)} />
 
           {/* Catch-all Route */}

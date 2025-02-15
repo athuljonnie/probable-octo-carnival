@@ -1,55 +1,69 @@
 import React, { useEffect, useState } from "react";
+import {jwtDecode} from "jwt-decode"; // <-- Important: default import
 import { GoogleLogin, googleLogout, useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import { useGoogleStore } from "../store/googleStore";
+import { useAuthStore } from "../store/authStore";
+import { sendGoogleUserData } from "../services/userServices";
 
 export const GoogleAuth = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();                // user.id must be available here
   const { setGoogleUser, setAuthorized } = useGoogleStore();
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // ✅ Handle Google Login Success
+  // Confirm you see user.id in the console:
+  console.log("Auth store user:", user);
+
+  // Handle Google Login Success
   const handleSuccess = async (tokenResponse: any) => {
     try {
+      // Decode the JWT token from Google
       const decoded: any = jwtDecode(tokenResponse.credential);
 
-      setGoogleUser({
+      // Create a local Google-user object
+      const newGoogleUser = {
         email: decoded.email,
         name: decoded.name,
         picture: decoded.picture,
         sub: decoded.sub,
-      });
+      };
 
+      // Store Google user info in your local store
+      setGoogleUser(newGoogleUser);
       setAuthorized(true);
-      console.log("Google Login Success:", decoded);
 
-      // ✅ Manually Request OAuth Token with Required Scopes
+      // ❗️Send your user.id from auth store + the Google user data to the backend
+       const stringData =JSON.stringify(newGoogleUser)
+      const stringifiedAgain = JSON.stringify(stringData)
+      await sendGoogleUserData(user.id, stringifiedAgain);
+
+      // Begin OAuth flow to get Access Token
       getAccessToken();
 
+      // Then navigate onward
       navigate("/agent-config");
     } catch (error) {
       console.error("Google Login Error:", error);
     }
   };
 
-  // ✅ Request OAuth Access Token for Google Calendar & Contacts
+  // Request OAuth Access Token for Google Calendar & Contacts
   const getAccessToken = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      console.log("OAuth Token Response:", tokenResponse);
       setAccessToken(tokenResponse.access_token);
 
-      // Fetch both calendar events and contacts
-      listUpcomingEvents(tokenResponse.access_token);
-      fetchContacts(tokenResponse.access_token);
+      // Example: fetch events & contacts right away
+      await listUpcomingEvents(tokenResponse.access_token);
+      await fetchContacts(tokenResponse.access_token);
     },
     onError: () => console.error("OAuth Authorization Failed"),
-    scope: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/contacts.readonly",
+    scope: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/contacts",
     flow: "implicit",
   });
 
-  // ✅ Fetch Upcoming Google Calendar Events
+  // Fetch Upcoming Calendar Events
   const listUpcomingEvents = async (token: string) => {
     try {
       const response = await axios.get(
@@ -58,14 +72,13 @@ export const GoogleAuth = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
-      console.log("Google Calendar Events:", response.data.items);
+      console.log("Calendar Events:", response.data);
     } catch (error) {
       console.error("Error fetching calendar events:", error);
     }
   };
 
-  // ✅ Fetch Google Contacts
+  // Fetch Google Contacts
   const fetchContacts = async (token: string) => {
     try {
       const response = await axios.get(
@@ -74,13 +87,13 @@ export const GoogleAuth = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
-      console.log("Google Contacts:", response.data.connections);
+      console.log("Google Contacts:", response.data);
     } catch (error) {
       console.error("Error fetching contacts:", error);
     }
   };
 
+  // Component Render
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white shadow-lg rounded-2xl p-8 w-96 text-center">
@@ -97,7 +110,10 @@ export const GoogleAuth = () => {
         </div>
 
         <div className="space-y-4">
-          <GoogleLogin onSuccess={handleSuccess} onError={() => console.error("Google Login Failed")} />
+          <GoogleLogin
+            onSuccess={handleSuccess}
+            onError={() => console.error("Google Login Failed")}
+          />
 
           {accessToken && (
             <div className="space-y-2">
