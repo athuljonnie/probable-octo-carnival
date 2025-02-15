@@ -211,7 +211,9 @@ agent_id: string,
   status: string,
   provider: string
 ) => {
+  console.log(provider)
   try {
+    
     const response = await vocalLabApi.post('', {
       query: `
 mutation MyQuery($client_id: uuid!, $agent_id: uuid!, $provider: String!, $status: String!) {
@@ -221,7 +223,8 @@ mutation MyQuery($client_id: uuid!, $agent_id: uuid!, $provider: String!, $statu
 }`,
       variables:{ client_id, agent_id, status,provider },
     });
-    return response.data.data.vocallabsCallForwadingMapping?.mapping || null;
+    console.log(response)
+    return response.data || null;
   } catch (error) {
     console.error('Error saving call forwarding mapping:', error);
     throw new Error('Failed to save call forwarding mapping.');

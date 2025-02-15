@@ -133,38 +133,42 @@ const ForwardingAgentsPage = () => {
     }
   };
 
-  const toggleCallForwarding = async (agent: Agent) => {
-    try {
-      // Example log
-      console.log("Toggling agent: ", agent.id);
-      
-      // If user toggles the same agent, we un-forward
-      if (selectedAgentId === agent.id) {
-        await updateAgentStatus(user.id, agent.id, "vi", "unavailable");
-        setSelectedAgentId(null);
-        setAgents((prev) =>
-          prev.map((a) =>
-            a.id === agent.id ? { ...a, status: "unavailable" } : a
-          )
-        );
-      } else {
-        await updateAgentStatus(user.id, agent.id, "call_forwarding");
-        setAgents((prev) =>
-          prev.map((a) => {
-            if (a.id === agent.id) {
-              return { ...a, status: "call_forwarding" };
-            } else if (a.status === "call_forwarding") {
-              return { ...a, status: "unavailable" };
-            }
-            return a;
-          })
-        );
-        setSelectedAgentId(agent.id);
-      }
-    } catch (error) {
-      console.error("Error toggling forwarding:", error);
+// updateAgentStatus expects 4 parameters in this order:
+
+const toggleCallForwarding = async (agent: Agent, provider: string) => {
+  try {
+    console.log("Toggling agent with provider:", provider);
+
+    // If user toggles the same agent, we un-forward (set to unavailable)
+    if (selectedAgentId === agent.id) {
+      await updateAgentStatus(user.id, agent.id, "unavailable", provider);
+      setSelectedAgentId(null);
+      setAgents((prev) =>
+        prev.map((a) =>
+          a.id === agent.id ? { ...a, status: "unavailable" } : a
+        )
+      );
+    } else {
+      // Otherwise, we set call forwarding for this agent
+      await updateAgentStatus(user.id, agent.id, "call_forwarding", provider);
+      setAgents((prev) =>
+        prev.map((a) => {
+          if (a.id === agent.id) {
+            return { ...a, status: "call_forwarding" };
+          } else if (a.status === "call_forwarding") {
+            return { ...a, status: "unavailable" };
+          }
+          return a;
+        })
+      );
+      setSelectedAgentId(agent.id);
     }
-  };
+  } catch (error) {
+    console.error("Error toggling forwarding:", error);
+  }
+};
+
+// Usage example:
 
   // UPDATED: pass agent data through the "state" param in navigate()
 // Old approach:
@@ -269,7 +273,7 @@ const handleEditAgent = (agent) => {
                 key={agent.id}
                 agent={agent}
                 isForwarding={selectedAgentId === agent.id}
-                onToggle={toggleCallForwarding}
+onToggle={(agent) => toggleCallForwarding(agent, "vi")}
                 onEdit={handleEditAgent} 
               />
             ))}
