@@ -9,13 +9,21 @@ import { sendGoogleUserData } from "../services/userServices";
 
 export const GoogleAuth = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();                // user.id must be available here
+  const { user,  logout: appLogout  } = useAuthStore();                
   const { setGoogleUser, setAuthorized } = useGoogleStore();
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Confirm you see user.id in the console:
-  console.log("Auth store user:", user);
+  const handleAppLogout = () => {
+    // 1) your app logout
+    appLogout();
 
+    // 2) close dropdown if you'd like
+    setIsDropdownOpen(false);
+
+    // 3) optionally navigate
+    // navigate("/login");
+  };
   // Handle Google Login Success
   const handleSuccess = async (tokenResponse: any) => {
     try {
@@ -72,7 +80,6 @@ export const GoogleAuth = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      console.log("Calendar Events:", response.data);
     } catch (error) {
       console.error("Error fetching calendar events:", error);
     }
@@ -134,7 +141,7 @@ export const GoogleAuth = () => {
           )}
 
           <button
-            onClick={() => googleLogout()}
+                onClick={handleAppLogout}
             className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg"
           >
             Logout

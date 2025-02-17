@@ -43,7 +43,6 @@ export const PhoneLogin = () => {
           phoneNumber: phoneNumber,
           isAuthenticated: true
         });
-        navigate('/google-auth');
         toast.success('Successfully verified!');
       } else {
         setError('Invalid OTP. Please try again.');

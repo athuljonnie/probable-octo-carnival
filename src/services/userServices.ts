@@ -468,3 +468,43 @@ export async function updateAgentWithContext({
     throw error; // Rethrow for handling at a higher level if needed
   }
 }
+
+export async function getNetworkDetails({
+  client_id,
+  mobile_number,
+}: {
+  client_id: string;
+  mobile_number: string;
+}) {
+  try {
+    console.log(
+      "Client ID:", client_id,
+      "\nMobile Number:", mobile_number
+    );
+
+    const query = `
+    query MyQuery($client_id: uuid!, $mobile_number: String!) {
+      vocallabsGetNetworkDetails(request: {client_id: $client_id, mobile_number: $mobile_number}) {
+        service_provider
+      }
+    }`;
+
+    const variables = {
+      client_id,
+      mobile_number,
+    };
+
+    const response = await vocalLabApi.post('', {
+      query,
+      variables,
+    });
+
+    console.log(response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error in getNetworkDetails:", error);
+    throw error; // Rethrow for higher-level handling if necessary
+  }
+}
+
+
