@@ -25,6 +25,23 @@ function isMobileDevice() {
   );
 }
 
+// Gorgeous Loader Component
+const Loader: React.FC<{ message?: string }> = ({ message = "Loading..." }) => {
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white via-white/80 to-white/60 backdrop-blur-lg z-50">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="relative">
+          <div className="w-20 h-20 border-t-4 border-b-4 border-blue-500 border-solid rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+          </div>
+        </div>
+        <p className="text-2xl font-semibold text-blue-600 animate-pulse">{message}</p>
+      </div>
+    </div>
+  );
+};
+
 const AgentConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -35,9 +52,11 @@ const AgentConfigurationPage: React.FC = () => {
   const [provider, setProvider] = useState<string>('');
   const [isCallForwardingInitialized, setIsCallForwardingInitialized] = useState(false);
   const [forwardingTelLink, setForwardingTelLink] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
+      setIsLoading(true);
       try {
         const response = await fetchPreviousMappings(user.id);
         const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
@@ -91,6 +110,7 @@ const AgentConfigurationPage: React.FC = () => {
 
       const forwardingFlag = localStorage.getItem('callForwardingInitialized');
       setIsCallForwardingInitialized(forwardingFlag === '1');
+      setIsLoading(false);
     })();
   }, [user.id]);
 
@@ -109,9 +129,9 @@ const AgentConfigurationPage: React.FC = () => {
       toast.error('No agent configured.');
       return;
     }
-
+    setIsLoading(true);
     try {
-      await updateAgentStatus(user.id, localAgent.id, status, provider);
+      await updateAgentStatus(user.id, localAgent.id, status, user.provider);
       const updatedAgent = { ...localAgent, status, provider };
       setLocalAgent(updatedAgent);
       localStorage.setItem('forwardingAgent', JSON.stringify(updatedAgent));
@@ -121,9 +141,11 @@ const AgentConfigurationPage: React.FC = () => {
       console.error('Failed to update agent status:', error);
       toast.error('Failed to update agent status.');
     }
+    setIsLoading(false);
   };
 
   const handleInitializeCallForwarding = async () => {
+    setIsLoading(true);
     try {
       const forwardingPhoneNumber = await setCallForwarding(user.id);
       if (forwardingPhoneNumber) {
@@ -146,6 +168,7 @@ const AgentConfigurationPage: React.FC = () => {
       console.error('Failed to initialize call forwarding:', error);
       toast.error('Failed to initialize call forwarding.');
     }
+    setIsLoading(false);
   };
 
   const handleRemoveCallForwarding = () => {
@@ -157,6 +180,7 @@ const AgentConfigurationPage: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {isLoading && <Loader message="Please wait..." />}
       <SidePanel />
 
       <div className="flex-1 p-4 md:p-8">
@@ -183,17 +207,17 @@ const AgentConfigurationPage: React.FC = () => {
         {localAgent ? (
           <div className="flex justify-center">
             <div className="w-full max-w-md transform transition-all duration-300 hover:scale-[1.02]">
-              {/* Card Container (shorter) */}
+              {/* Card Container */}
               <div className="relative bg-white rounded-2xl overflow-hidden shadow-xl">
-                {/* Top gradient bar (made 1px tall) */}
+                {/* Top gradient bar */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400" />
                 
                 {/* Subtle glass morphism background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/80 backdrop-blur-sm" />
 
-                {/* Content Container with tighter padding/spacing */}
+                {/* Content Container */}
                 <div className="relative p-4 space-y-4">
-                  {/* Header Section with smaller avatar */}
+                  {/* Header Section */}
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-0.5">
@@ -213,9 +237,6 @@ const AgentConfigurationPage: React.FC = () => {
                         </p>
                         <p className="text-xs text-gray-500">
                           Status: {localAgent.status}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Provider: {localAgent.provider || "Not Configured"}
                         </p>
                       </div>
                     </div>
@@ -239,7 +260,8 @@ const AgentConfigurationPage: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Provider Selection */}
+                  {/* Provider Selection (currently commented out) */}
+                  {/*
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
                       Service Provider
@@ -264,6 +286,7 @@ const AgentConfigurationPage: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  */}
 
                   {/* Save Button */}
                   <button
