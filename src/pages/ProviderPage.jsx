@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Check, X, Signal, ChevronRight } from 'lucide-react';
-import { getNetworkDetails } from "../services/userServices";
+import { Check, Signal, ChevronRight } from 'lucide-react';
+import { getNetworkDetails, getIspProviders } from "../services/userServices";
 
 const ProviderPage = () => {
   const navigate = useNavigate();
@@ -12,26 +12,40 @@ const ProviderPage = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [providers, setProviders] = useState([]);
 
-  const providers = [
-    { name: 'Airtel', color: '#1D4ED8' },
-    { name: 'Jio', color: '#1D4ED8' },
-    { name: 'Vi', color: '#1D4ED8' },
-    { name: 'BSNL', color: '#1D4ED8' },
-  ];
+  const getProviders = async () => {
+    setIsVerifying(true);
+    try {
+      const response = await getIspProviders();
+      setProviders(response.data.vocallabs_isp_provider);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  useEffect(() => {
+    getProviders();
+  }, []);
 
   const detectNetwork = async () => {
     setIsVerifying(true);
     try {
-      console.log(user.id, user.phoneNumber);
-      const response = await getNetworkDetails({ 
-        client_id: user.id, 
-        mobile_number: user.phoneNumber 
+      const response = await getNetworkDetails({
+        client_id: user.id,
+        mobile_number: user.phoneNumber,
       });
-      const detectedProvider = response.data.vocallabsGetNetworkDetails.service_provider;
-      console.log(detectedProvider);
-      
-      if (providers.some(p => p.name === detectedProvider)) {
+      const detectedProvider =
+        response.data.vocallabsGetNetworkDetails.service_provider;
+
+      if (
+        providers.some(
+          (p) =>
+            p.provider.toLowerCase() === detectedProvider.toLowerCase()
+        )
+      ) {
         setSelectedProvider(detectedProvider);
       } else {
         setShowDropdown(true);
@@ -45,9 +59,15 @@ const ProviderPage = () => {
     }
   };
 
+  // If a provider is already set, don't call detectNetwork
   useEffect(() => {
-    detectNetwork();
-  }, [user.id, user.phoneNumber, setProvider]);
+    if (user.provider) {
+      setSelectedProvider(user.provider);
+      setIsLoading(false);
+    } else if (providers.length > 0) {
+      detectNetwork();
+    }
+  }, [providers, user.id, user.phoneNumber, user.provider]);
 
   const handleConfirm = () => {
     setIsAnimating(true);
@@ -72,37 +92,48 @@ const ProviderPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center px-4 sm:px-6">
         <div className="space-y-4 text-center">
-          <Signal className="w-16 h-16 text-[#1D4ED8] animate-pulse" />
-          <p className="text-gray-500">Detecting your network provider...</p>
+          <Signal className="w-12 h-12 sm:w-16 sm:h-16 text-[#354497] animate-pulse mx-auto" />
+          <p className="text-base sm:text-lg text-gray-500 font-light">
+            Detecting your network provider...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className={`w-full max-w-md transform transition-all duration-300 ease-in-out ${
-        isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
-      }`}>
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center px-4 sm:px-6">
+      <div
+        className={`w-full max-w-md transform transition-all duration-500 ease-out ${
+          isAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
+        }`}
+      >
         {!showDropdown ? (
-          <div className="space-y-8">
-            <div className="flex items-center justify-center">
-              <Signal className="w-16 h-16 text-[#1D4ED8]" />
+          <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-8 sm:p-10 space-y-8">
+            <div className="flex justify-center mb-12">
+              <img
+                src="https://cdn.subspace.money/grow90_tracks/images/BqmsrUnUNTucPV2rY6wm.png"
+                alt="Logo"
+                className="h-8 w-auto"
+              />
             </div>
-            
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold text-gray-900">
-                Welcome to Vocal Labs.
-              </h2>
-              <p className="text-gray-500">
-                We detected your SIM provider
-              </p>
+
+            <div className="text-center space-y-4">
+              <Signal className="w-12 h-12 text-gray-500 mx-auto" />
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  Welcome to Vocal Labs
+                </h2>
+                <p className="text-base text-gray-500 font-light">
+                  We detected your SIM provider as 
+                </p>
+              </div>
             </div>
-            
-            <div className="py-6 text-center">
-              <span className="text-2xl font-bold text-[#1D4ED8]">
+
+            <div className="py-6 text-center bg-gray-50 rounded-xl">
+              <span className="text-xl font-semibold text-[#354497]">
                 {selectedProvider}
               </span>
             </div>
@@ -110,57 +141,59 @@ const ProviderPage = () => {
             <div className="space-y-4">
               <button
                 onClick={handleConfirm}
-                className="w-full flex items-center justify-between px-6 py-4 bg-[#1D4ED8] text-white rounded-2xl hover:bg-[#1e40af] transform transition-all duration-200 group"
+                className="w-full flex items-center justify-between px-6 py-4 bg-[#354497] text-white rounded-xl hover:bg-[#2a3876] transform transition-all duration-300 ease-out hover:shadow-lg group"
               >
-                <span className="text-lg font-medium">Continue with {selectedProvider}</span>
-                <ChevronRight className="w-6 h-6 transform group-hover:translate-x-1 transition-transform" />
+                <span className="text-base font-medium">
+                  Continue with {selectedProvider}
+                </span>
+                <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
               </button>
 
               <button
                 onClick={handleChangeProvider}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 text-[#1D4ED8] hover:bg-blue-50 rounded-2xl transition-all duration-200"
+                className="w-full flex items-center justify-center px-6 py-4 text-[#354497] hover:bg-gray-50 rounded-xl transition-all duration-300 text-base border border-transparent hover:border-gray-200"
               >
                 Change Provider
-              </button>
-
-              <button
-                onClick={detectNetwork}
-                disabled={isVerifying}
-                className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl transition-all duration-200 ${
-                  isVerifying ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'text-[#1D4ED8] hover:bg-blue-50'
-                }`}
-              >
-                {isVerifying ? 'Verifying...' : 'Verify Provider'}
               </button>
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold text-gray-900">
+          <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-8 sm:p-10 space-y-8">
+            <div className="text-center space-y-3">
+              <h2 className="text-2xl font-semibold text-gray-900">
                 Select Your Provider
               </h2>
-              <p className="text-gray-500">
+              <p className="text-base text-gray-500 font-light">
                 For {user.phoneNumber}
               </p>
             </div>
 
             <div className="space-y-3">
+              {/* Prettified Back Button */}
+              <button
+                onClick={() => navigate(-1)}
+                className="w-full flex items-center justify-center px-6 py-4 text-[#354497] hover:bg-gray-50 rounded-xl transition-all duration-300 text-base border border-transparent hover:border-gray-200"
+              >
+                Back
+              </button>
+
               {providers.map((provider) => (
                 <button
-                  key={provider.name}
-                  onClick={() => handleProviderSelect(provider.name)}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-200 hover:bg-blue-50 ${
-                    selectedProvider === provider.name 
-                      ? 'bg-blue-50 border-2 border-[#1D4ED8]'
-                      : 'border-2 border-transparent'
+                  key={provider.id}
+                  onClick={() => handleProviderSelect(provider.provider)}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl transition-all duration-300 hover:bg-gray-50 ${
+                    selectedProvider.toLowerCase() ===
+                    provider.provider.toLowerCase()
+                      ? 'bg-gray-50 border-2 border-[#354497]'
+                      : 'border-2 border-transparent hover:border-gray-200'
                   }`}
                 >
-                  <span className="text-lg font-medium text-gray-900">
-                    {provider.name}
+                  <span className="text-base font-medium text-gray-900">
+                    {provider.provider}
                   </span>
-                  {selectedProvider === provider.name && (
-                    <Check className="w-6 h-6 text-[#1D4ED8]" />
+                  {selectedProvider.toLowerCase() ===
+                    provider.provider.toLowerCase() && (
+                    <Check className="w-5 h-5 text-[#354497]" />
                   )}
                 </button>
               ))}
@@ -168,10 +201,10 @@ const ProviderPage = () => {
 
             <button
               onClick={handleConfirm}
-              className="w-full flex items-center justify-between px-6 py-4 bg-[#1D4ED8] text-white rounded-2xl hover:bg-[#1e40af] transform transition-all duration-200 group"
+              className="w-full flex items-center justify-between px-6 py-4 bg-[#354497] text-white rounded-xl hover:bg-[#2a3876] transform transition-all duration-300 ease-out hover:shadow-lg group"
             >
-              <span className="text-lg font-medium">Continue</span>
-              <ChevronRight className="w-6 h-6 transform group-hover:translate-x-1 transition-transform" />
+              <span className="text-base font-medium">Continue</span>
+              <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </div>
         )}

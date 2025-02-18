@@ -508,3 +508,27 @@ export async function getNetworkDetails({
 }
 
 
+export async function getIspProviders() {
+  try {
+    const query = `
+  query MyQuery {
+  vocallabs_isp_provider {
+    provider
+    id
+  }
+}
+`;
+    const response = await vocalLabApi.post('', {
+      query    });
+
+    console.log(response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error in getNetworkDetails:", error);
+    throw error; // Rethrow for higher-level handling if necessary
+  }
+}
+
+
+
+
