@@ -89,7 +89,7 @@ export const GoogleAuth = () => {
   const fetchContacts = async (token: string) => {
     try {
       const response = await axios.get(
-        "https://people.googleapis.com/v1/contacts?personFields=names,emailAddresses",
+        "https://people.googleapis.com/v1/contacts",
         {
           headers: { Authorization: `Bearer ${token}` },
         }

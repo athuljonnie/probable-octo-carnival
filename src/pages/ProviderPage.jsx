@@ -72,6 +72,12 @@ const ProviderPage = () => {
   const handleConfirm = () => {
     setIsAnimating(true);
     setProvider(selectedProvider);
+const providerData = {
+  selectedProvider: selectedProvider,
+  userId: user.id
+};
+
+localStorage.setItem("providerData", JSON.stringify(providerData));
     setTimeout(() => {
       navigate('/google-auth');
     }, 500);
@@ -203,7 +209,6 @@ const ProviderPage = () => {
               onClick={handleConfirm}
               className="w-full flex items-center justify-between px-6 py-4 bg-[#354497] text-white rounded-xl hover:bg-[#2a3876] transform transition-all duration-300 ease-out hover:shadow-lg group"
             >
-              <span className="text-base font-medium">Continue</span>
               <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </div>

@@ -26,14 +26,26 @@ function App() {
   const { isAuthorized } = useGoogleStore();
   const isAuthenticated = user?.isAuthenticated;
   const isGoogleAuthorized = isAuthorized;
-  const hasSelectedProvider = !!user?.provider;
+  
+  // Fix: Declare hasSelectedProvider at function scope
+  let hasSelectedProvider = false;
+  
+  // Fix: Handle localStorage check and provider validation
+  const providerData = localStorage.getItem("providerData");
+  if (providerData && user?.id) {
+    try {
+      const parsedProviderData = JSON.parse(providerData);
+      hasSelectedProvider = parsedProviderData.userId === user.id;
+    } catch (error) {
+      console.error("Error parsing provider data:", error);
+    }
+  }
 
   useEffect(() => {
     console.log("Auth Store User:", user);
     console.log("Is Authenticated:", isAuthenticated);
   }, [user, isAuthenticated]);
 
-  // Higher-order function to protect routes
   const requireAuth = (Component: React.ElementType) => {
     return isAuthenticated && isGoogleAuthorized ? (
       <ProtectedLayout>
@@ -52,50 +64,51 @@ function App() {
           {/* Public routes */}
           <Route
             path="/"
-            element={!isAuthenticated ? <PhoneLogin /> : (
-              hasSelectedProvider ? 
-                (isGoogleAuthorized ? <Navigate to="/agents" replace /> : <Navigate to="/google-auth" replace />) :
+            element={
+              !isAuthenticated ? (
+                <PhoneLogin />
+              ) : hasSelectedProvider ? (
+                <Navigate to="/google-auth" replace />
+              ) : (
                 <Navigate to="/choose-provider" replace />
-            )}
+              )
+            }
           />
-
           {/* Provider Selection Route */}
           <Route
             path="/choose-provider"
             element={
               isAuthenticated ? (
-                !hasSelectedProvider ? (
-                  <ProviderPage />
+                hasSelectedProvider ? (
+                  <Navigate to="/google-auth" replace />
                 ) : (
-                  <Navigate to={isGoogleAuthorized ? "/agents" : "/google-auth"} replace />
+                  <ProviderPage />
                 )
               ) : (
                 <Navigate to="/" replace />
               )
             }
           />
-
           {/* Google Auth Route */}
           <Route
             path="/google-auth"
             element={
-              isAuthenticated && hasSelectedProvider ? (
-                !isGoogleAuthorized ? (
-                  <GoogleAuth />
-                ) : (
+              isAuthenticated ? (
+                isGoogleAuthorized ? (
                   <Navigate to="/agents" replace />
+                ) : (
+                  <GoogleAuth />
                 )
               ) : (
-                <Navigate to={!isAuthenticated ? "/" : "/choose-provider"} replace />
+                <Navigate to="/" replace />
               )
             }
           />
-
           {/* Protected Routes */}
           <Route path="/agents" element={requireAuth(<AgentConfigurationPage />)} />
           <Route path="/add-agent" element={requireAuth(<EditAgentPage />)} />
           <Route path="/forwarding-agents" element={requireAuth(<ForwardingAgentsPage />)} />
-
+          
           {/* Catch-all Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
