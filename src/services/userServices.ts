@@ -515,6 +515,7 @@ export async function getIspProviders() {
   vocallabs_isp_provider {
     provider
     id
+    name
   }
 }
 `;
@@ -530,5 +531,31 @@ export async function getIspProviders() {
 }
 
 
+export async function removeCallForwarding(provider) {
+  try {
+    const query = `
+      query MyQuery($provider: String!) {
+        vocallabs_call_forwarding_codes(
+          where: { status: { _eq: "deactivate" }, provider: { _eq: $provider } }
+        ) {
+          forwarding_code
+          provider
+          status
+          id
+        }
+      }
+    `;
 
+    const variables = { provider };
+    const response = await vocalLabApi.post('', {
+      query,
+      variables,
+    });
 
+    return response.data.data.vocallabs_call_forwarding_codes[0]; // Ensure you return the response data
+
+  } catch (error) {
+    console.error("Error removing call forwarding:", error);
+    throw error; // Rethrow the error for better debugging
+  }
+}

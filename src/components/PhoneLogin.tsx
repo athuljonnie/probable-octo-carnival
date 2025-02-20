@@ -134,7 +134,7 @@ export const PhoneLogin = () => {
                   />
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  Format: 9876543210 (10 digits)
+                  Format: +xx1234567890 (10 digits)
                 </p>
               </div>
 

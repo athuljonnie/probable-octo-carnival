@@ -434,6 +434,7 @@ const AgentPage: React.FC = () => {
             return;
           }
 
+          console.log(selectedTemplate)
           // Convert file to base64
           let base64File = "";
           if (formData.file) {

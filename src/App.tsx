@@ -11,6 +11,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import EditAgentPage from "./components/EditWrapper";
 import ProviderPage from "./pages/ProviderPage";
+import ChangeProviderPage from "./pages/ChangeProviderPage";
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -41,10 +42,6 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    console.log("Auth Store User:", user);
-    console.log("Is Authenticated:", isAuthenticated);
-  }, [user, isAuthenticated]);
 
   const requireAuth = (Component: React.ElementType) => {
     return isAuthenticated && isGoogleAuthorized ? (
@@ -108,6 +105,7 @@ function App() {
           <Route path="/agents" element={requireAuth(<AgentConfigurationPage />)} />
           <Route path="/add-agent" element={requireAuth(<EditAgentPage />)} />
           <Route path="/forwarding-agents" element={requireAuth(<ForwardingAgentsPage />)} />
+          <Route path="/change-provider" element={requireAuth(<ChangeProviderPage />)} />
           
           {/* Catch-all Route */}
           <Route path="*" element={<Navigate to="/" replace />} />

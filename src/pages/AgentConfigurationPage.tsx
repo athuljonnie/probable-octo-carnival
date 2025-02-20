@@ -1,16 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCcw, User, PhoneCall, Power, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  RefreshCcw,
+  User,
+  PhoneCall,
+  Power,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 import SidePanel from '../components/SidePanel';
 import { useAuthStore } from '../store/authStore';
 import {
   updateAgentStatus,
   setCallForwarding,
   fetchPreviousMappings,
+  removeCallForwarding,
 } from '../services/userServices';
 import { toast } from 'react-hot-toast';
 
-// Types
 interface Agent {
   id: string;
   name: string;
@@ -19,50 +26,54 @@ interface Agent {
   provider?: string;
 }
 
-function isMobileDevice() {
-  return /Android|iPhone|iPod|iPad|Opera Mini|IEMobile|WPDesktop/i.test(
-    navigator.userAgent
-  );
-}
-
-// Refined Loader Component
-const Loader: React.FC<{ message?: string }> = ({ message = "Processing your request..." }) => {
-  return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm z-50">
-      <div className="flex flex-col items-center space-y-5">
-        <div className="relative">
-          <Loader2 className="w-16 h-16 text-[#4355BC] animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-3 h-3 bg-[#4355BC] rounded-full"></div>
-          </div>
-        </div>
-        <p className="text-xl font-medium text-gray-800">{message}</p>
-        <p className="text-sm text-gray-500 max-w-xs text-center">This may take a moment. Please don't close your browser.</p>
-      </div>
-    </div>
-  );
+// 1. Memoized device check to avoid re-computing on every render
+const useIsMobileDevice = () => {
+  return useMemo(() => {
+    return /Android|iPhone|iPod|iPad|Opera Mini|IEMobile|WPDesktop/i.test(
+      navigator.userAgent
+    );
+  }, []);
 };
 
-// Status Badge Component
+const Loader: React.FC<{ message?: string }> = ({ message = 'Processing your request...' }) => (
+  <div className="fixed inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm z-50">
+    <div className="flex flex-col items-center space-y-5">
+      <div className="relative">
+        <Loader2 className="w-16 h-16 text-[#4355BC] animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-3 h-3 bg-[#4355BC] rounded-full" />
+        </div>
+      </div>
+      <p className="text-xl font-medium text-gray-800">{message}</p>
+      <p className="text-sm text-gray-500 max-w-xs text-center">
+        This may take a moment. Please don't close your browser.
+      </p>
+    </div>
+  </div>
+);
+
+// 2. Optional: You can memoize this if it's static
+const getStatusInfo = (status: string) => {
+  switch (status) {
+    case 'busy':
+      return { color: 'bg-amber-100 text-amber-800', icon: '🔸' };
+    case 'unavailable':
+      return { color: 'bg-red-100 text-red-800', icon: '⭕' };
+    case 'out_of_reach':
+      return { color: 'bg-purple-100 text-purple-800', icon: '📴' };
+    default:
+      return { color: 'bg-gray-100 text-gray-800', icon: '⚪' };
+  }
+};
+
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'busy':
-        return { color: 'bg-amber-100 text-amber-800', icon: '🔸' };
-      case 'unavailable':
-        return { color: 'bg-red-100 text-red-800', icon: '⭕' };
-      case 'out_of_reach':
-        return { color: 'bg-purple-100 text-purple-800', icon: '📴' };
-      default:
-        return { color: 'bg-gray-100 text-gray-800', icon: '⚪' };
-    }
-  };
-
   const statusInfo = getStatusInfo(status);
-
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
-      {statusInfo.icon} {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}
+    >
+      {statusInfo.icon}{' '}
+      {status.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
     </span>
   );
 };
@@ -70,6 +81,8 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 const AgentConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
+  const isMobileDevice = useIsMobileDevice();
 
   const [localAgent, setLocalAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>('');
@@ -79,75 +92,88 @@ const AgentConfigurationPage: React.FC = () => {
   const [forwardingTelLink, setForwardingTelLink] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    (async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetchPreviousMappings(user.id);
-        const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
+  // 3. A small helper to safely parse stored agent
+  const getAgentFromLocalStorage = useCallback((): Agent | null => {
+    try {
+      const storedAgent = localStorage.getItem('forwardingAgent');
+      if (!storedAgent) return null;
+      const parsedAgent = JSON.parse(storedAgent);
+      if (parsedAgent && parsedAgent.id) return parsedAgent;
+    } catch (err) {
+      console.error('Failed to parse local agent:', err);
+    }
+    return null;
+  }, []);
 
-        if (serverAgent) {
-          const mappedAgent: Agent = {
-            id: serverAgent.agent?.id || '',
-            name: serverAgent.agent?.name || 'Unknown Agent',
-            status: serverAgent.status || '',
-            clientId: serverAgent.client_id || '',
-            provider: serverAgent.provider || '',
-          };
+  // 4. Encapsulate side effects for retrieving agent data
+  const initializeAgent = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetchPreviousMappings(user.id);
+      const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
 
-          setLocalAgent(mappedAgent);
-          setStatus(mappedAgent.status);
-          setProvider(mappedAgent.provider || '');
-          localStorage.setItem('forwardingAgent', JSON.stringify(mappedAgent));
-        } else {
-          const storedAgent = localStorage.getItem('forwardingAgent');
-          if (storedAgent) {
-            try {
-              const parsedAgent = JSON.parse(storedAgent);
-              if (parsedAgent && parsedAgent.id) {
-                setLocalAgent(parsedAgent);
-                setStatus(parsedAgent.status || '');
-                setProvider(parsedAgent.provider || '');
-              }
-            } catch (e) {
-              console.error('Failed to parse local agent:', e);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching agent from server:', error);
-        toast.error('Failed to fetch agent from server. Falling back to local storage.');
-
-        const storedAgent = localStorage.getItem('forwardingAgent');
-        if (storedAgent) {
-          try {
-            const parsedAgent = JSON.parse(storedAgent);
-            if (parsedAgent && parsedAgent.id) {
-              setLocalAgent(parsedAgent);
-              setStatus(parsedAgent.status || '');
-              setProvider(parsedAgent.provider || '');
-            }
-          } catch (e) {
-            console.error('Failed to parse local agent:', e);
-          }
+      if (serverAgent) {
+        const mappedAgent: Agent = {
+          id: serverAgent.agent?.id || '',
+          name: serverAgent.agent?.name || 'Unknown Agent',
+          status: serverAgent.status || '',
+          clientId: serverAgent.client_id || '',
+          provider: serverAgent.provider || '',
+        };
+        setLocalAgent(mappedAgent);
+        setStatus(mappedAgent.status);
+        setProvider(mappedAgent.provider || '');
+        localStorage.setItem('forwardingAgent', JSON.stringify(mappedAgent));
+      } else {
+        // Fallback to local storage
+        const lsAgent = getAgentFromLocalStorage();
+        if (lsAgent) {
+          setLocalAgent(lsAgent);
+          setStatus(lsAgent.status || '');
+          setProvider(lsAgent.provider || '');
         }
       }
-
+    } catch (error) {
+      console.error('Error fetching agent from server:', error);
+      toast.error('Failed to fetch agent from server. Falling back to local storage.');
+      // Fallback
+      const lsAgent = getAgentFromLocalStorage();
+      if (lsAgent) {
+        setLocalAgent(lsAgent);
+        setStatus(lsAgent.status || '');
+        setProvider(lsAgent.provider || '');
+      }
+    } finally {
+      // Set callForwarding state
       const forwardingFlag = localStorage.getItem('callForwardingInitialized');
       setIsCallForwardingInitialized(forwardingFlag === '1');
       setIsLoading(false);
-    })();
-  }, [user.id]);
+    }
+  }, [user.id, getAgentFromLocalStorage]);
 
-  const handleStatusChange = (newStatus: string) => {
+  useEffect(() => {
+    initializeAgent();
+  }, [initializeAgent]);
+
+  // 5. Keep small handler for status and provider changes
+  const handleStatusChange = useCallback((newStatus: string) => {
     setStatus(newStatus);
     setIsStatusChanged(true);
-  };
+  }, []);
 
-  const handleProviderChange = (newProvider: string) => {
+  const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     setIsStatusChanged(true);
-  };
+  }, []);
+
+  // 6. Single function to sync agent data to local storage
+  const syncAgentToLocalStorage = useCallback(
+    (updatedAgent: Agent) => {
+      setLocalAgent(updatedAgent);
+      localStorage.setItem('forwardingAgent', JSON.stringify(updatedAgent));
+    },
+    []
+  );
 
   const handleSaveStatus = async () => {
     if (!localAgent) {
@@ -160,8 +186,7 @@ const AgentConfigurationPage: React.FC = () => {
     try {
       await updateAgentStatus(user.id, localAgent.id, status, user.provider);
       const updatedAgent = { ...localAgent, status, provider };
-      setLocalAgent(updatedAgent);
-      localStorage.setItem('forwardingAgent', JSON.stringify(updatedAgent));
+      syncAgentToLocalStorage(updatedAgent);
       toast.success('Agent status updated successfully!');
       setIsStatusChanged(false);
     } catch (error) {
@@ -172,7 +197,6 @@ const AgentConfigurationPage: React.FC = () => {
   };
 
   const handleInitializeCallForwarding = async () => {
-    setIsLoading(true);
     try {
       const forwardingPhoneNumber = await setCallForwarding(user.id);
       if (forwardingPhoneNumber) {
@@ -183,7 +207,8 @@ const AgentConfigurationPage: React.FC = () => {
         const telLink = `tel:${forwardingPhoneNumber}`;
         setForwardingTelLink(telLink);
 
-        if (isMobileDevice()) {
+        // If mobile, directly redirect to calling
+        if (isMobileDevice) {
           window.location.href = telLink;
         } else {
           toast(`On desktop, please dial: ${forwardingPhoneNumber}`);
@@ -195,26 +220,47 @@ const AgentConfigurationPage: React.FC = () => {
       console.error('Failed to initialize call forwarding:', error);
       toast.error('Failed to initialize call forwarding.');
     }
-    setIsLoading(false);
   };
 
-  const handleRemoveCallForwarding = () => {
-    localStorage.removeItem('callForwardingInitialized');
-    setIsCallForwardingInitialized(false);
-    setForwardingTelLink('');
-    toast.success('Call forwarding removed!');
+  const handleRemoveCallForwarding = async () => {
+    setIsLoading(true);
+    try {
+      const response = await removeCallForwarding(user.provider);
+      if (response && response.forwarding_code) {
+        const telLink = `tel:${response.forwarding_code}`;
+        setForwardingTelLink(telLink);
+
+        if (isMobileDevice) {
+          window.location.href = telLink;
+        } else {
+          toast(`On desktop, please dial: ${response.forwarding_code}`);
+        }
+      }
+
+      localStorage.removeItem('callForwardingInitialized');
+      setIsCallForwardingInitialized(false);
+      setForwardingTelLink('');
+      toast.success('Call forwarding removed!');
+    } catch (error) {
+      console.error('Failed to remove call forwarding:', error);
+      toast.error('Failed to remove call forwarding.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      {isLoading && <Loader />}
+<div className="flex flex-col md:flex-row min-h-screen bg-gray-50 mt-24 md:mt-20">
+  {isLoading && <Loader />}
       <SidePanel />
 
       <div className="flex-1 p-5 md:pt-3 max-w-screen-xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Agent Management</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+              Agent Management
+            </h1>
             <p className="mt-2 text-gray-600 text-sm md:text-base">
               Configure your virtual agent's availability and call forwarding settings
             </p>
@@ -235,13 +281,11 @@ const AgentConfigurationPage: React.FC = () => {
         {localAgent ? (
           <div className="flex justify-center">
             <div className="w-full max-w-md">
-              {/* Card Container */}
-              <div 
+              <div
                 className="relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200 
                   transition-all duration-300 hover:shadow-md"
                 style={{ borderTop: '3px solid #4355BC' }}
               >
-                {/* Content Container */}
                 <div className="p-8 space-y-6">
                   {/* Header Section */}
                   <div className="flex items-start gap-4">
@@ -250,23 +294,22 @@ const AgentConfigurationPage: React.FC = () => {
                         <User className="h-7 w-7 text-[#4355BC]" />
                       </div>
                       <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100">
-                        <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                        <div className="w-4 h-4 rounded-full bg-green-500" />
                       </div>
                     </div>
-                    
-        <div className="flex-1">
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-    <h2 className="text-[20px] font-semibold text-gray-900">
-      {localAgent?.name?.substring(0, 14) ?? 'Unknown Agent'}...
-    </h2>
-    <StatusBadge status={localAgent?.status} />
-  </div>
 
-                      
+                    <div className="flex-1">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <h2 className="text-[20px] font-semibold text-gray-900">
+                          {localAgent?.name?.substring(0, 18) ?? 'Unknown Agent'}...
+                        </h2>
+                        <StatusBadge status={localAgent?.status} />
+                      </div>
+
                       <div className="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
                         <span className="font-medium">Agent ID:</span>
                         <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-mono">
-                          {localAgent.id.substring(0, 8)}...
+                          {localAgent.id.substring(0, 14)}...
                         </code>
                       </div>
                     </div>
@@ -296,8 +339,14 @@ const AgentConfigurationPage: React.FC = () => {
                             }
                           `}
                         >
-                          <span>{option === 'busy' ? '🔸' : option === 'unavailable' ? '⭕' : '📴'}</span>
-                          <span>{option.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                          <span>
+                            {option === 'busy' ? '🔸' : option === 'unavailable' ? '⭕' : '📴'}
+                          </span>
+                          <span>
+                            {option
+                              .replace(/_/g, ' ')
+                              .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -318,7 +367,7 @@ const AgentConfigurationPage: React.FC = () => {
                     `}
                   >
                     {isStatusChanged && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 hover:opacity-100 transition-opacity duration-300"></span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 hover:opacity-100 transition-opacity duration-300" />
                     )}
                     Save Changes
                   </button>
@@ -354,9 +403,7 @@ const AgentConfigurationPage: React.FC = () => {
                             <PhoneCall className="h-5 w-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-green-800">
-                              Call Forwarding Active
-                            </p>
+                            <p className="text-sm font-medium text-green-800">Call Forwarding Active</p>
                             <p className="mt-1 text-xs text-green-700">
                               Your calls will be forwarded according to your configured status.
                             </p>
@@ -364,6 +411,8 @@ const AgentConfigurationPage: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* If needed, show "forwardingTelLink" */}
+                      {/* e.g.:
                       {forwardingTelLink && (
                         <div className="p-3.5 rounded-lg bg-blue-50 border border-blue-100">
                           <p className="text-sm font-medium text-blue-800 mb-2">
@@ -377,7 +426,7 @@ const AgentConfigurationPage: React.FC = () => {
                             <code className="font-mono">{forwardingTelLink}</code>
                           </a>
                         </div>
-                      )}
+                      )} */}
 
                       <button
                         onClick={handleRemoveCallForwarding}
@@ -397,12 +446,25 @@ const AgentConfigurationPage: React.FC = () => {
               <div className="mt-4 p-4 rounded-lg bg-blue-50 border border-blue-100">
                 <div className="flex items-start gap-3">
                   <div className="p-1 bg-blue-100 rounded-full">
-                    <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <svg
+                      className="h-4 w-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm text-blue-800 font-medium">Your agent settings auto-sync across devices</p>
+                    <p className="text-sm text-blue-800 font-medium">
+                      Your agent settings auto-sync across devices
+                    </p>
                     <p className="mt-0.5 text-xs text-blue-700">
                       Changes to agent status are automatically synced to all your connected devices.
                     </p>
@@ -412,14 +474,15 @@ const AgentConfigurationPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          // Empty State - Premium Design
+          /* Empty State - Premium Design */
           <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="bg-gray-50 p-4 rounded-full mb-4">
               <User className="h-10 w-10 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">No Agent Configured</h3>
             <p className="text-gray-600 max-w-md mb-6">
-              You haven't set up any call forwarding agents yet. Create your first agent to get started with automated call handling.
+              You haven't set up any call forwarding agents yet. Create your first agent to get
+              started with automated call handling.
             </p>
             <button
               onClick={() => navigate('/add-agent')}

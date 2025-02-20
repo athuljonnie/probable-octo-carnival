@@ -47,7 +47,7 @@ const ProviderPage = () => {
             p.provider.toLowerCase() === detectedProvider.toLowerCase()
         )
       ) {
-        setSelectedProvider(detectedProvider.toLowerCase());
+        setSelectedProvider(detectedProvider);
       } else {
         setShowDropdown(true);
       }
@@ -151,7 +151,7 @@ localStorage.setItem("providerData", JSON.stringify(providerData));
                 className="w-full flex items-center justify-between px-6 py-4 bg-[#354497] text-white rounded-xl hover:bg-[#2a3876] transform transition-all duration-300 ease-out hover:shadow-lg group"
               >
                 <span className="text-base font-medium">
-                  Continue with {selectedProvider.toLowerCase()}
+                  Continue with {selectedProvider}
                 </span>
                 <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
               </button>
@@ -187,7 +187,7 @@ localStorage.setItem("providerData", JSON.stringify(providerData));
               {providers.map((provider) => (
                 <button
                   key={provider.id}
-onClick={() => handleProviderSelect(provider.provider.toLowerCase())}
+onClick={() => handleProviderSelect(provider.provider)}
                   className={`w-full flex items-center justify-between p-4 rounded-xl transition-all duration-300 hover:bg-gray-50 ${
                     selectedProvider.toLowerCase() ===
                     provider.provider.toLowerCase()
@@ -196,7 +196,7 @@ onClick={() => handleProviderSelect(provider.provider.toLowerCase())}
                   }`}
                 >
                   <span className="text-base font-medium text-gray-900">
-                    {provider.provider}
+                    {provider.name}
                   </span>
                   {selectedProvider.toLowerCase() ===
                     provider.provider.toLowerCase() && (
@@ -210,6 +210,7 @@ onClick={() => handleProviderSelect(provider.provider.toLowerCase())}
               onClick={handleConfirm}
               className="w-full flex items-center justify-between px-6 py-4 bg-[#354497] text-white rounded-xl hover:bg-[#2a3876] transform transition-all duration-300 ease-out hover:shadow-lg group"
             >
+              Continue
               <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </div>
