@@ -56,57 +56,64 @@ const AgentCard: React.FC<AgentCardProps> = ({
 }) => {
   return (
     <div className="relative w-full transform transition-all duration-300 hover:scale-[1.02]">
-      <div
-        className={`relative bg-white h-fit rounded-xl overflow-hidden shadow-sm ${
-          isForwarding ? "ring-2 ring-[#4355BC]" : "border border-gray-200"
-        }`}
-      >
-        {/* Solid top line */}
-        <div className="w-full" style={{ height: "4px", backgroundColor: "#4254BA" }}></div>
-
-
-
-        <div className="relative p-5 pt-4">
-          <div className="absolute top-3 right-3 flex items-center space-x-2">
-            <Bot className="h-4 w-4 text-gray-500" />
-            {isForwarding && <PhoneForwarded className="h-4 w-4 text-green-500" />}
-            <div className="relative group">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(agent);
-                }}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
-              >
-                <Pencil className="h-4 w-4 text-[#4355BC]" />
-              </button>
-              <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs py-1 px-2 rounded-md -right-2 top-8 whitespace-nowrap z-10">
-                Edit Agent
-                <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-800 transform rotate-45" />
-              </div>
-            </div>
+  <div
+    className={`relative bg-white h-fit rounded-xl overflow-hidden shadow-sm ${
+      isForwarding ? "ring-2 ring-[#4355BC]" : "border border-gray-200"
+    }`}
+  >
+    {/* Solid top line */}
+    <div className="w-full" style={{ height: "4px", backgroundColor: "#4254BA" }}></div>
+    <div className="relative p-5 pt-4">
+      {/* Active Status Indicator */}
+      <div className="absolute top-3 left-3 flex items-center space-x-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex">
+            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <div className="absolute inset-0 h-2 w-2 rounded-full bg-green-500 blur-sm"></div>
+            <div className="absolute inset-0 h-2 w-2 rounded-full bg-green-500/50 animate-pulse blur-md"></div>
           </div>
+          <span className="text-xs font-medium text-green-600">Active</span>
+        </div>
+      </div>
 
-          <div className="space-y-3 pt-6">
-            <h3 className="text-sm font-semibold text-gray-800">
-              {agent.name || "Unnamed Agent"}
-            </h3>
-            <p className="text-xs text-gray-500 break-all">{agent.id}</p>
-
-            <button
-              onClick={() => onToggle(agent)}
-              className={`w-full px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-                isForwarding
-                  ? "bg-red-100 text-red-800 hover:bg-red-200"
-                  : "bg-[#4355BC]/10 text-[#4355BC] hover:bg-[#4355BC]/20"
-              }`}
-            >
-              {isForwarding ? "Unset Forwarding" : "Set as Forwarding Agent"}
-            </button>
+      <div className="absolute top-3 right-3 flex items-center space-x-2">
+        <Bot className="h-4 w-4 text-gray-500" />
+        {isForwarding && <PhoneForwarded className="h-4 w-4 text-green-500" />}
+        <div className="relative group">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(agent);
+            }}
+            className="p-1 rounded-full hover:bg-gray-100 transition-colors duration-200"
+          >
+            <Pencil className="h-4 w-4 text-[#4355BC]" />
+          </button>
+          <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs py-1 px-2 rounded-md -right-2 top-8 whitespace-nowrap z-10">
+            Edit Agent
+            <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-800 transform rotate-45" />
           </div>
         </div>
       </div>
+      <div className="space-y-3 pt-6">
+        <h3 className="text-sm font-semibold text-gray-800">
+          {agent.name || "Unnamed Agent"}
+        </h3>
+        <p className="text-xs text-gray-500 break-all">{agent.id}</p>
+        <button
+          onClick={() => onToggle(agent)}
+          className={`w-full px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+            isForwarding
+              ? "bg-red-100 text-red-800 hover:bg-red-200"
+              : "bg-[#4355BC]/10 text-[#4355BC] hover:bg-[#4355BC]/20"
+          }`}
+        >
+          {isForwarding ? "Unset Forwarding" : "Set as Forwarding Agent"}
+        </button>
+      </div>
     </div>
+  </div>
+</div>
   );
 };
 
@@ -130,22 +137,20 @@ const ForwardingAgentsPage = () => {
       if (!Array.isArray(agentResponse)) {
         agentResponse = [agentResponse];
       }
-
+console.log(agentResponse)
       const mappedAgents = agentResponse.map((ag: any) => ({
         ...ag,
         id: ag.agent_id ?? ag.id,
       }));
 
       const highlightData = await fetchPreviousMappings(user.id);
+      console.log(highlightData)
       const highlightObj =
-        highlightData?.data?.data?.vocallabs_call_forwarding_agents_by_pk;
-      const highlightId = highlightObj?.agent.id || null;
-
+       highlightData?.data?.data?.vocallabs_call_forwarding_agents?.[0]?.agent?.id;
       setAgents(mappedAgents);
-      setSelectedAgentId(highlightId);
+      setSelectedAgentId(highlightObj);
     } catch (err) {
       console.error("Error fetching data on mount:", err);
-      toast.error("Failed to fetch agents. Please try again.");
       setAgents([]);
       setSelectedAgentId(null);
     } finally {
@@ -214,7 +219,7 @@ const ForwardingAgentsPage = () => {
 
       <div className="flex-1 p-5 md:p-10 max-w-screen-xl mx-auto">
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
+        <div className="flex flex-col md:pt-16  pt-16 sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <button
@@ -228,11 +233,20 @@ const ForwardingAgentsPage = () => {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
               Forwarding Agents
             </h1>
-            <p className="mt-2 text-gray-600 text-sm md:text-base">
-              Select an agent to activate or unset call forwarding
-            </p>
+{agents.length > 0 ? (
+  <p className="mt-2 text-gray-600 text-sm md:text-base">
+    Select an agent to activate or unset call forwarding
+  </p>
+) : (
+  <p className="mt-2 text-gray-600 text-sm md:text-base">
+    Create an agent to begin
+  </p>
+)}
+
+
           </div>
 
+          {agents.length > 0 && (
           <button
             onClick={() => navigate("/add-agent")}
             className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
@@ -241,9 +255,10 @@ const ForwardingAgentsPage = () => {
             <PlusCircle className="h-4 w-4 mr-2" />
             <span>Add Agent</span>
           </button>
+      )}
         </div>
-
         {/* Search Bar */}
+        {agents.length > 5 &&(
         <div className="relative max-w-md mb-8">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-gray-400" />
@@ -256,12 +271,12 @@ const ForwardingAgentsPage = () => {
             className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4355BC]/30 focus:border-transparent text-sm text-gray-700 shadow-sm"
           />
         </div>
-
+)}
         {/* Content Section */}
         {loading ? (
           <Loader />
         ) : filteredAgents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex flex-col items-center justify-center h-64 text-center p-6 rounded-xl">
             <div className="bg-gray-50 p-4 rounded-full mb-4">
               <Bot className="h-10 w-10 text-gray-400" />
             </div>
@@ -298,7 +313,6 @@ const ForwardingAgentsPage = () => {
             ))}
           </div>
         )}
-
         {/* Info Box */}
         {agents.length > 0 && (
           <div className="mt-8 p-4 rounded-lg bg-blue-50 border border-blue-100">

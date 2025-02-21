@@ -23,6 +23,7 @@ const Navbar = () => {
 
   const handleGoogleLogout = () => {
     googleLogout();
+    appLogout();
     setGoogleUser(null);
     setAuthorized(false);
     setIsDropdownOpen(false);
@@ -122,16 +123,6 @@ const Navbar = () => {
               </div>
             )}
 
-            {user && (
-              <button
-                onClick={handleAppLogout}
-                className="px-6 py-2.5 rounded-full bg-[#4355BC] text-white text-sm font-medium 
-                  hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                Logout
-              </button>
-            )}
           </div>
         </div>
       </div>

@@ -6,7 +6,6 @@ import {
   UploadCloud, 
   ArrowLeft,
   Languages, 
-  Speech,
   Bot,
   FileText
 } from "lucide-react";
@@ -164,14 +163,15 @@ const AgentFormContent = React.memo(({
   agentToEdit: AgentToEdit | null;
   selectedAgentId: string | null;
   selectedTemplate?: AgentTemplate;
-}) => (
+}) =>  
+  (
   <div className="w-full max-w-3xl px-6">
     <button
       onClick={onBack}
       className="group flex items-center text-slate-600 hover:text-[#354497] mb-8 transition-colors duration-200"
     >
       <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
-      {agentToEdit ? "Back to Agent List" : "Back to Templates"}
+      {agentToEdit ? "Back to Agent List" : "Back"}
     </button>
     
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -185,7 +185,6 @@ const AgentFormContent = React.memo(({
           </p>
         )}
       </div>
-
       <form onSubmit={onSubmit} className="p-8 space-y-8">
         <div className="space-y-6">
           <div>
@@ -197,7 +196,7 @@ const AgentFormContent = React.memo(({
               type="text"
               name="name"
               id="name"
-              value={formData.name}
+              value={selectedTemplate.name}
               onChange={onInputChange}
               className="w-full rounded-xl border-slate-200 bg-slate-50 
                 focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
@@ -214,7 +213,7 @@ const AgentFormContent = React.memo(({
               name="welcome_message"
               id="welcome_message"
               rows={3}
-              value={formData.welcome_message}
+              value={selectedTemplate.welcome_message}
               onChange={onInputChange}
               className="w-full rounded-xl border-slate-200 bg-slate-50
                 focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
@@ -231,7 +230,7 @@ const AgentFormContent = React.memo(({
               name="agent_prompt"
               id="agent_prompt"
               rows={4}
-              value={formData.agent_prompt}
+              value={selectedTemplate.agent_prompt}
               onChange={onInputChange}
               className="w-full rounded-xl border-slate-200 bg-slate-50
                 focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
@@ -282,6 +281,38 @@ const AgentFormContent = React.memo(({
     </div>
   </div>
 ));
+
+// ------------------- Validation Utility -------------------
+/**
+ * Validates the form inputs for both "create" and "edit" scenarios.
+ * @param formData The current form data state.
+ * @param isCreatingNew Whether this is a new agent creation flow.
+ * @returns A boolean indicating if validation passed.
+ */
+const validateForm = (formData: FormData, isCreatingNew: boolean): boolean => {
+  if (!formData.name.trim()) {
+    toast.error("Agent name is required.");
+    return false;
+  }
+
+  if (!formData.welcome_message.trim()) {
+    toast.error("Welcome message is required.");
+    return false;
+  }
+
+  if (!formData.agent_prompt.trim()) {
+    toast.error("Agent prompt is required.");
+    return false;
+  }
+
+  // For creating a brand new agent, a file must be provided
+  if (isCreatingNew && !formData.file) {
+    toast.error("Knowledge Base file is required for new agents.");
+    return false;
+  }
+
+  return true;
+};
 
 // ------------------- Main Component: AgentPage -------------------
 const AgentPage: React.FC = () => {
@@ -354,6 +385,7 @@ const AgentPage: React.FC = () => {
       setLoadingTemplates(true);
       try {
         const templates = await getAgentTemplates();
+        console.log(templates)
         setAgentTemplates(templates);
       } catch (error) {
         console.error("Error fetching agent templates:", error);
@@ -376,6 +408,7 @@ const AgentPage: React.FC = () => {
       }, 1000);
     } else {
       // In create mode, clear the selected template to go back to the templates list
+        navigate("/forwarding-agents");
       setSelectedAgentId(null);
     }
   }, [agentToEdit, navigate]);
@@ -401,40 +434,40 @@ const AgentPage: React.FC = () => {
     setSelectedAgentId(agentId);
   }, []);
 
-  // 3) Form submission handler
+  // 3) Form submission handler with validation
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsLoading(true);
+
+      // Determine if this is a new agent creation or editing flow
       const isCreatingNew = !agentToEdit;
 
-      if (isCreatingNew) {
-        // Must select a template and upload a file when creating new
-        if (!selectedAgentId) {
-          toast.error("Please select a template first!");
-          setIsLoading(false);
-          return;
-        }
-        if (!formData.file) {
-          toast.error("Please choose a file to upload!");
-          setIsLoading(false);
-          return;
-        }
+      // ------------- Validate form data -------------
+      if (!validateForm(formData, isCreatingNew)) {
+        setIsLoading(false);
+        return; // Stop submission if validation fails
       }
 
       try {
         // ---------------- CREATE NEW AGENT CASE ----------------
         if (isCreatingNew) {
+          if (!selectedAgentId) {
+            toast.error("Please select a template first!");
+            setIsLoading(false);
+            return;
+          }
+
           const selectedTemplate = agentTemplates.find(
             (t) => t.id === selectedAgentId
           );
+          console.log(selectedTemplate)
           if (!selectedTemplate) {
             toast.error("Invalid template. Please try again.");
             setIsLoading(false);
             return;
           }
 
-          console.log(selectedTemplate)
           // Convert file to base64
           let base64File = "";
           if (formData.file) {
@@ -491,7 +524,15 @@ const AgentPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [agentToEdit, agentTemplates, selectedAgentId, formData, clientId, handleBack, user.id]
+    [
+      agentToEdit,
+      agentTemplates,
+      selectedAgentId,
+      formData,
+      clientId,
+      handleBack,
+      user.id
+    ]
   );
 
   // Determine selected template for display (only when creating new)

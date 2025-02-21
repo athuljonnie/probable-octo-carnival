@@ -17,6 +17,7 @@ import {
   removeCallForwarding,
 } from '../services/userServices';
 import { toast } from 'react-hot-toast';
+import { useDeviceInfo } from '../hooks/useDeviceInfo';  // <--- NEW import
 
 interface Agent {
   id: string;
@@ -25,15 +26,6 @@ interface Agent {
   clientId?: string;
   provider?: string;
 }
-
-// 1. Memoized device check to avoid re-computing on every render
-const useIsMobileDevice = () => {
-  return useMemo(() => {
-    return /Android|iPhone|iPod|iPad|Opera Mini|IEMobile|WPDesktop/i.test(
-      navigator.userAgent
-    );
-  }, []);
-};
 
 const Loader: React.FC<{ message?: string }> = ({ message = 'Processing your request...' }) => (
   <div className="fixed inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm z-50">
@@ -52,7 +44,6 @@ const Loader: React.FC<{ message?: string }> = ({ message = 'Processing your req
   </div>
 );
 
-// 2. Optional: You can memoize this if it's static
 const getStatusInfo = (status: string) => {
   switch (status) {
     case 'busy':
@@ -61,6 +52,8 @@ const getStatusInfo = (status: string) => {
       return { color: 'bg-red-100 text-red-800', icon: '⭕' };
     case 'out_of_reach':
       return { color: 'bg-purple-100 text-purple-800', icon: '📴' };
+    case 'unconditional':
+      return { color: 'bg-green-100 text-green-800', icon: '✅' };
     default:
       return { color: 'bg-gray-100 text-gray-800', icon: '⚪' };
   }
@@ -73,7 +66,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}
     >
       {statusInfo.icon}{' '}
-      {status.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+      {status
+        .replace('_', ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase())}
     </span>
   );
 };
@@ -82,8 +77,10 @@ const AgentConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const isMobileDevice = useIsMobileDevice();
-
+  // NEW: get device info
+  const { isAndroid, isIOS, isMobile } = useDeviceInfo();
+const deviceInfo =  useDeviceInfo();
+  console.log(deviceInfo)
   const [localAgent, setLocalAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>('');
   const [isStatusChanged, setIsStatusChanged] = useState(false);
@@ -92,7 +89,6 @@ const AgentConfigurationPage: React.FC = () => {
   const [forwardingTelLink, setForwardingTelLink] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // 3. A small helper to safely parse stored agent
   const getAgentFromLocalStorage = useCallback((): Agent | null => {
     try {
       const storedAgent = localStorage.getItem('forwardingAgent');
@@ -105,7 +101,6 @@ const AgentConfigurationPage: React.FC = () => {
     return null;
   }, []);
 
-  // 4. Encapsulate side effects for retrieving agent data
   const initializeAgent = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -155,7 +150,13 @@ const AgentConfigurationPage: React.FC = () => {
     initializeAgent();
   }, [initializeAgent]);
 
-  // 5. Keep small handler for status and provider changes
+  // If user is on iOS, let's force "unconditional" status for them.
+  useEffect(() => {
+    if (isIOS) {
+      setStatus('unconditional');
+    }
+  }, [isIOS]);
+
   const handleStatusChange = useCallback((newStatus: string) => {
     setStatus(newStatus);
     setIsStatusChanged(true);
@@ -166,7 +167,6 @@ const AgentConfigurationPage: React.FC = () => {
     setIsStatusChanged(true);
   }, []);
 
-  // 6. Single function to sync agent data to local storage
   const syncAgentToLocalStorage = useCallback(
     (updatedAgent: Agent) => {
       setLocalAgent(updatedAgent);
@@ -207,8 +207,8 @@ const AgentConfigurationPage: React.FC = () => {
         const telLink = `tel:${forwardingPhoneNumber}`;
         setForwardingTelLink(telLink);
 
-        // If mobile, directly redirect to calling
-        if (isMobileDevice) {
+        // If on any mobile device, directly redirect to the dialer
+        if (isMobile) {
           window.location.href = telLink;
         } else {
           toast(`On desktop, please dial: ${forwardingPhoneNumber}`);
@@ -230,7 +230,7 @@ const AgentConfigurationPage: React.FC = () => {
         const telLink = `tel:${response.forwarding_code}`;
         setForwardingTelLink(telLink);
 
-        if (isMobileDevice) {
+        if (isMobile) {
           window.location.href = telLink;
         } else {
           toast(`On desktop, please dial: ${response.forwarding_code}`);
@@ -250,8 +250,8 @@ const AgentConfigurationPage: React.FC = () => {
   };
 
   return (
-<div className="flex flex-col md:flex-row min-h-screen bg-gray-50 mt-24 md:mt-20">
-  {isLoading && <Loader />}
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 mt-24 md:mt-20">
+      {isLoading && <Loader />}
       <SidePanel />
 
       <div className="flex-1 p-5 md:pt-3 max-w-screen-xl mx-auto">
@@ -301,76 +301,95 @@ const AgentConfigurationPage: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                         <h2 className="text-[20px] font-semibold text-gray-900">
-                          {localAgent?.name?.substring(0, 18) ?? 'Unknown Agent'}...
+                          {localAgent?.name?.length > 10
+                            ? localAgent.name.substring(0, 10) + '...'
+                            : localAgent?.name ?? 'Unknown Agent'}
                         </h2>
-                        <StatusBadge status={localAgent?.status} />
-                      </div>
-
-                      <div className="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
-                        <span className="font-medium">Agent ID:</span>
-                        <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-mono">
-                          {localAgent.id.substring(0, 14)}...
-                        </code>
+                        <StatusBadge status={status} />
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Selection */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm font-medium text-gray-700">
-                        Agent Use Case
-                      </label>
-                      <span className="text-xs text-gray-500">Affects call handling</span>
-                    </div>
+                  {/* If user is iOS, show unconditional only; otherwise show all statuses */}
+                  {isIOS ? (
+                    <div className="space-y-4">
+                      <div className="p-3.5 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800 font-semibold mb-1">
+                          Conditional Call Forwarding Not Available on iOS
+                        </p>
+                        <p className="text-xs text-yellow-700">
+                          We’ve set your agent to “Unconditional” forwarding.
+                          You cannot change to “busy,” “unavailable,” or
+                          “out of reach” on iOS devices.
+                        </p>
+                      </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      {['busy', 'unavailable', 'out_of_reach'].map((option) => (
+                      {/* Save Button for iOS users (if there's any reason to "save" unconditional) */}
+                      {isStatusChanged && (
                         <button
-                          key={option}
-                          onClick={() => handleStatusChange(option)}
-                          className={`
-                            p-2.5 rounded-lg text-sm font-medium text-center
-                            transition-all duration-200 flex flex-col items-center justify-center gap-1
-                            ${
-                              status === option
-                                ? 'bg-[#4355BC]/10 text-[#4355BC] border-2 border-[#4355BC]/20'
-                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent'
-                            }
-                          `}
+                          onClick={handleSaveStatus}
+                          className="w-full p-3 rounded-lg bg-[#4355BC] text-white text-sm font-medium shadow-sm
+                            hover:shadow-md transition-all duration-300"
                         >
-                          <span>
-                            {option === 'busy' ? '🔸' : option === 'unavailable' ? '⭕' : '📴'}
-                          </span>
-                          <span>
-                            {option
-                              .replace(/_/g, ' ')
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
+                          Save Unconditional Status
                         </button>
-                      ))}
+                      )}
                     </div>
-                  </div>
+                  ) : (
+                    // Android or Desktop → Show status selection
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-gray-700">
+                          Agent Use Case
+                        </label>
+                        <span className="text-xs text-gray-500">Affects call handling</span>
+                      </div>
 
-                  {/* Save Button */}
-                  <button
-                    onClick={handleSaveStatus}
-                    disabled={!isStatusChanged}
-                    className={`
-                      w-full p-3 rounded-lg text-sm font-medium
-                      transition-all duration-300 relative overflow-hidden
-                      ${
-                        isStatusChanged
-                          ? 'bg-[#4355BC] text-white shadow-sm hover:shadow-md'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }
-                    `}
-                  >
-                    {isStatusChanged && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 hover:opacity-100 transition-opacity duration-300" />
-                    )}
-                    Save Changes
-                  </button>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['busy', 'unavailable', 'out_of_reach'].map((option) => (
+                          <button
+                            key={option}
+                            onClick={() => handleStatusChange(option)}
+                            className={`
+                              p-2.5 rounded-lg text-sm font-medium text-center
+                              transition-all duration-200 flex flex-col items-center justify-center gap-1
+                              ${
+                                status === option
+                                  ? 'bg-[#4355BC]/10 text-[#4355BC] border-2 border-[#4355BC]/20'
+                                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent'
+                              }
+                            `}
+                          >
+                            <span>
+                              {option === 'busy' ? '🔸' : option === 'unavailable' ? '⭕' : '📴'}
+                            </span>
+                            <span>
+                              {option
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Save Button (only enable if user changed something) */}
+                      <button
+                        onClick={handleSaveStatus}
+                        disabled={!isStatusChanged}
+                        className={`
+                          w-full p-3 rounded-lg text-sm font-medium
+                          transition-all duration-300 relative overflow-hidden
+                          ${
+                            isStatusChanged
+                              ? 'bg-[#4355BC] text-white shadow-sm hover:shadow-md'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }
+                        `}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  )}
 
                   {/* Divider */}
                   <div className="relative py-3">
@@ -411,23 +430,7 @@ const AgentConfigurationPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* If needed, show "forwardingTelLink" */}
-                      {/* e.g.:
-                      {forwardingTelLink && (
-                        <div className="p-3.5 rounded-lg bg-blue-50 border border-blue-100">
-                          <p className="text-sm font-medium text-blue-800 mb-2">
-                            Desktop Dialing Instructions
-                          </p>
-                          <a
-                            href={forwardingTelLink}
-                            className="block p-2 rounded bg-white border border-blue-200 text-sm text-blue-600 
-                              hover:text-blue-800 hover:bg-blue-50 transition-colors break-all"
-                          >
-                            <code className="font-mono">{forwardingTelLink}</code>
-                          </a>
-                        </div>
-                      )} */}
-
+                      {/* If needed, show forwardingTelLink on desktop, etc. */}
                       <button
                         onClick={handleRemoveCallForwarding}
                         className="w-full p-3.5 rounded-lg bg-white text-red-600 border border-red-200

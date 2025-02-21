@@ -349,6 +349,7 @@ query MyQuery {
     language
     name
     welcome_message
+    agent_prompt
 }
 }`,});
 

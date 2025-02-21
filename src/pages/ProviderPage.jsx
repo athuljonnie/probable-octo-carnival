@@ -31,34 +31,33 @@ const ProviderPage = () => {
     getProviders();
   }, []);
 
-  const detectNetwork = async () => {
-    setIsVerifying(true);
-    try {
-      const response = await getNetworkDetails({
-        client_id: user.id,
-        mobile_number: user.phoneNumber,
-      });
-      const detectedProvider =
-        response.data.vocallabsGetNetworkDetails.service_provider;
+const detectNetwork = async () => {
+  setIsVerifying(true);
+  try {
+    const response = await getNetworkDetails({
+      client_id: user.id,
+      mobile_number: user.phoneNumber,
+    });
 
-      if (
-        providers.some(
-          (p) =>
-            p.provider.toLowerCase() === detectedProvider.toLowerCase()
-        )
-      ) {
-        setSelectedProvider(detectedProvider);
-      } else {
-        setShowDropdown(true);
-      }
-    } catch (error) {
-      console.error('Error detecting network:', error);
+    const detectedProvider =
+      response.data.vocallabsGetNetworkDetails.service_provider;
+    console.log(detectedProvider);
+
+    if (providers.some((p) => p.provider === detectedProvider)) {
+      // Do something if detectedProvider is in providers list
+    } else if (detectedProvider === "Reliance Jio") {
+      setSelectedProvider("Jio");
+    } else {
       setShowDropdown(true);
-    } finally {
-      setIsVerifying(false);
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error detecting network:", error);
+    setShowDropdown(true);
+  } finally {
+    setIsVerifying(false);
+    setIsLoading(false);
+  }
+};
 
   // If a provider is already set, don't call detectNetwork
   useEffect(() => {
