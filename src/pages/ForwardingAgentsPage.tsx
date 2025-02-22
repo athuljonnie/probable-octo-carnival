@@ -17,7 +17,9 @@ import {
   fetchPreviousMappings,
 } from "../services/userServices";
 import { toast } from "react-hot-toast";
-
+import {
+  removeCallForwardingStateForUser,
+} from '../utils/callForwardingHelpers';
 // Types
 interface Agent {
   id: string;
@@ -186,6 +188,8 @@ console.log(agentResponse)
           })
         );
         setSelectedAgentId(agent.id);
+        removeCallForwardingStateForUser(user.id);
+
         toast.success(`Call forwarding enabled for ${agent.name}`);
       }
     } catch (error) {

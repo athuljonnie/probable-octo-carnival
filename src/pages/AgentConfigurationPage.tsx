@@ -15,9 +15,19 @@ import {
   setCallForwarding,
   fetchPreviousMappings,
   removeCallForwarding,
+  getAgentsElseCreateOne,
 } from '../services/userServices';
 import { toast } from 'react-hot-toast';
-import { useDeviceInfo } from '../hooks/useDeviceInfo';  // <--- NEW import
+import { useDeviceInfo } from '../hooks/useDeviceInfo';
+
+import EditAgentPage from '../components/EditWrapper';
+
+// ---- Import the new helpers here
+import {
+  getCallForwardingStateForUser,
+  setCallForwardingStateForUser,
+  removeCallForwardingStateForUser,
+} from '../utils/callForwardingHelpers'; // adjust path as needed
 
 interface Agent {
   id: string;
@@ -76,11 +86,8 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 const AgentConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-
-  // NEW: get device info
   const { isAndroid, isIOS, isMobile } = useDeviceInfo();
-const deviceInfo =  useDeviceInfo();
-  console.log(deviceInfo)
+
   const [localAgent, setLocalAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>('');
   const [isStatusChanged, setIsStatusChanged] = useState(false);
@@ -106,6 +113,9 @@ const deviceInfo =  useDeviceInfo();
     try {
       const response = await fetchPreviousMappings(user.id);
       const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
+      const ifUserHaveAgents = await getAgentsElseCreateOne(user.id);
+      console.log(ifUserHaveAgents);
+      console.log(serverAgent);
 
       if (serverAgent) {
         const mappedAgent: Agent = {
@@ -118,20 +128,10 @@ const deviceInfo =  useDeviceInfo();
         setLocalAgent(mappedAgent);
         setStatus(mappedAgent.status);
         setProvider(mappedAgent.provider || '');
-        localStorage.setItem('forwardingAgent', JSON.stringify(mappedAgent));
-      } else {
-        // Fallback to local storage
-        const lsAgent = getAgentFromLocalStorage();
-        if (lsAgent) {
-          setLocalAgent(lsAgent);
-          setStatus(lsAgent.status || '');
-          setProvider(lsAgent.provider || '');
-        }
       }
     } catch (error) {
       console.error('Error fetching agent from server:', error);
-      toast.error('Failed to fetch agent from server. Falling back to local storage.');
-      // Fallback
+      // Fallback to localStorage if server fails
       const lsAgent = getAgentFromLocalStorage();
       if (lsAgent) {
         setLocalAgent(lsAgent);
@@ -139,9 +139,9 @@ const deviceInfo =  useDeviceInfo();
         setProvider(lsAgent.provider || '');
       }
     } finally {
-      // Set callForwarding state
-      const forwardingFlag = localStorage.getItem('callForwardingInitialized');
-      setIsCallForwardingInitialized(forwardingFlag === '1');
+      // Instead of reading a single localStorage key, call our helper
+      const forwardingState = getCallForwardingStateForUser(user.id);
+      setIsCallForwardingInitialized(forwardingState);
       setIsLoading(false);
     }
   }, [user.id, getAgentFromLocalStorage]);
@@ -198,27 +198,45 @@ const deviceInfo =  useDeviceInfo();
 
   const handleInitializeCallForwarding = async () => {
     try {
-      const forwardingPhoneNumber = await setCallForwarding(user.id);
+      const forwardingResponse = await setCallForwarding(user.id);
+      if (forwardingResponse?.errors) {
+        toast.error(
+          forwardingResponse.errors[0].message || 'Call forwarding failed.'
+        );
+        return;
+      }
+
+      console.log(forwardingResponse);
+      const forwardingPhoneNumber =
+        forwardingResponse?.data?.setCallForwarding.forwarding_phone_number;
+
       if (forwardingPhoneNumber) {
-        localStorage.setItem('callForwardingInitialized', '1');
+        // Mark call forwarding as initialized for the CURRENT user
+        setCallForwardingStateForUser(user.id);
+
         setIsCallForwardingInitialized(true);
         toast.success('Call forwarding initialized!');
 
         const telLink = `tel:${forwardingPhoneNumber}`;
         setForwardingTelLink(telLink);
 
-        // If on any mobile device, directly redirect to the dialer
         if (isMobile) {
-          window.location.href = telLink;
+          window.location.href = telLink; // automatically open the dialer on mobile
         } else {
           toast(`On desktop, please dial: ${forwardingPhoneNumber}`);
         }
       } else {
         toast.error('No forwarding phone number returned from server.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize call forwarding:', error);
-      toast.error('Failed to initialize call forwarding.');
+
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        toast.error(`Server error: ${error.response.data.message || 'Unknown error'}`);
+      } else {
+        toast.error('Failed to initialize call forwarding. Please try again.');
+      }
     }
   };
 
@@ -237,7 +255,9 @@ const deviceInfo =  useDeviceInfo();
         }
       }
 
-      localStorage.removeItem('callForwardingInitialized');
+      // Remove call forwarding state for THIS user
+      removeCallForwardingStateForUser(user.id);
+
       setIsCallForwardingInitialized(false);
       setForwardingTelLink('');
       toast.success('Call forwarding removed!');
@@ -265,16 +285,27 @@ const deviceInfo =  useDeviceInfo();
               Configure your virtual agent's availability and call forwarding settings
             </p>
           </div>
-
-          <button
-            onClick={() => navigate('/forwarding-agents')}
-            className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
-              hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
-          >
-            <RefreshCcw className="h-4 w-4 mr-2 text-[#4355BC]" />
-            <span>Switch Forwarding Bot</span>
-            <ChevronRight className="h-4 w-4 ml-1 transform transition-transform group-hover:translate-x-1" />
-          </button>
+          {localAgent ? (
+            <button
+              onClick={() => navigate('/forwarding-agents')}
+              className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
+                hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2 text-[#4355BC]" />
+              <span>Switch Forwarding Bot</span>
+              <ChevronRight className="h-4 w-4 ml-1 transform transition-transform group-hover:translate-x-1" />
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/add-agent')}
+              className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
+                hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2 text-[#4355BC]" />
+              <span>Add Agent</span>
+              <ChevronRight className="h-4 w-4 ml-1 transform transition-transform group-hover:translate-x-1" />
+            </button>
+          )}
         </div>
 
         {/* Main Content */}
@@ -305,7 +336,7 @@ const deviceInfo =  useDeviceInfo();
                             ? localAgent.name.substring(0, 10) + '...'
                             : localAgent?.name ?? 'Unknown Agent'}
                         </h2>
-                        <StatusBadge status={status} />
+                        {!isIOS?(<StatusBadge status={status} />): null} 
                       </div>
                     </div>
                   </div>
@@ -324,7 +355,6 @@ const deviceInfo =  useDeviceInfo();
                         </p>
                       </div>
 
-                      {/* Save Button for iOS users (if there's any reason to "save" unconditional) */}
                       {isStatusChanged && (
                         <button
                           onClick={handleSaveStatus}
@@ -336,7 +366,6 @@ const deviceInfo =  useDeviceInfo();
                       )}
                     </div>
                   ) : (
-                    // Android or Desktop → Show status selection
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-gray-700">
@@ -372,7 +401,6 @@ const deviceInfo =  useDeviceInfo();
                         ))}
                       </div>
 
-                      {/* Save Button (only enable if user changed something) */}
                       <button
                         onClick={handleSaveStatus}
                         disabled={!isStatusChanged}
@@ -391,7 +419,6 @@ const deviceInfo =  useDeviceInfo();
                     </div>
                   )}
 
-                  {/* Divider */}
                   <div className="relative py-3">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-gray-200" />
@@ -403,7 +430,6 @@ const deviceInfo =  useDeviceInfo();
                     </div>
                   </div>
 
-                  {/* Call Forwarding Controls */}
                   {!isCallForwardingInitialized ? (
                     <button
                       onClick={handleInitializeCallForwarding}
@@ -422,7 +448,9 @@ const deviceInfo =  useDeviceInfo();
                             <PhoneCall className="h-5 w-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-green-800">Call Forwarding Active</p>
+                            <p className="text-sm font-medium text-green-800">
+                              Call Forwarding Active
+                            </p>
                             <p className="mt-1 text-xs text-green-700">
                               Your calls will be forwarded according to your configured status.
                             </p>
@@ -430,7 +458,6 @@ const deviceInfo =  useDeviceInfo();
                         </div>
                       </div>
 
-                      {/* If needed, show forwardingTelLink on desktop, etc. */}
                       <button
                         onClick={handleRemoveCallForwarding}
                         className="w-full p-3.5 rounded-lg bg-white text-red-600 border border-red-200
@@ -445,7 +472,6 @@ const deviceInfo =  useDeviceInfo();
                 </div>
               </div>
 
-              {/* Helpful tip */}
               <div className="mt-4 p-4 rounded-lg bg-blue-50 border border-blue-100">
                 <div className="flex items-start gap-3">
                   <div className="p-1 bg-blue-100 rounded-full">
@@ -477,25 +503,8 @@ const deviceInfo =  useDeviceInfo();
             </div>
           </div>
         ) : (
-          /* Empty State - Premium Design */
-          <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="bg-gray-50 p-4 rounded-full mb-4">
-              <User className="h-10 w-10 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Agent Configured</h3>
-            <p className="text-gray-600 max-w-md mb-6">
-              You haven't set up any call forwarding agents yet. Create your first agent to get
-              started with automated call handling.
-            </p>
-            <button
-              onClick={() => navigate('/add-agent')}
-              className="px-6 py-2.5 bg-[#4355BC] text-white rounded-lg shadow-sm
-                hover:bg-[#3a4a9f] transition-colors duration-200 ease-in-out flex items-center gap-2"
-            >
-              <span>Create Your First Agent</span>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          // If localAgent doesn't exist, show your "EditAgentPage" or fallback.
+          <EditAgentPage />
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { growApi, vocalLabApi, webHookUrl } from './api';
 
 // Function to request OTP
 export const requestOtp = async (phoneNumber: string) => {
+    console.log(phoneNumber)
   try {
     const response = await growApi.post('', {
       query: `
@@ -15,7 +16,7 @@ export const requestOtp = async (phoneNumber: string) => {
       `,
       variables: { phone: phoneNumber },
     });
-
+console.log(response)
     return response.data.data.registerWithoutPassword;
   } catch (error) {
     throw new Error('Failed to send OTP. Please try again.');
@@ -247,7 +248,8 @@ query MyQuery($client_id: uuid!) {
       `,
       variables:{ client_id },
     });
-    return response.data.data.setCallForwarding?.forwarding_phone_number || null;
+    console.log(response)
+    return response.data;
   } catch (error) {
     console.error('Error initializing call forwardin:', error);
     throw new Error('Failed to initialize call forwarding.');

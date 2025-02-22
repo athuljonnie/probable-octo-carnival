@@ -1,22 +1,23 @@
 // AgentPage.tsx
+
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Sparkles, 
-  MessageSquare, 
-  UploadCloud, 
+import {
+  Sparkles,
+  MessageSquare,
+  UploadCloud,
   ArrowLeft,
-  Languages, 
+  Languages,
   Bot,
-  FileText
+  FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
-import { 
+import {
   getAgentTemplates,
   sendTemplateData,
   updateAgentWithContext,
-  fetchAgentForEditForm
+  fetchAgentForEditForm,
 } from "../services/userServices";
 
 import { useAuthStore } from "../store/authStore";
@@ -28,7 +29,6 @@ function readFileAsBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
     reader.onload = () => {
       if (typeof reader.result === "string") {
-        // Split at the comma to get the raw base64 string
         const base64 = reader.result.split(",")[1];
         resolve(base64);
       } else {
@@ -69,218 +69,253 @@ const Loader: React.FC = () => (
 );
 
 // ------------------- Child Component: TemplateSelection -------------------
-const TemplateSelection = React.memo(({
-  agentTemplates,
-  onSelectAgent,
-}: {
-  agentTemplates: AgentTemplate[];
-  onSelectAgent: (id: string) => void;
-}) => (
-  <div className="w-full max-w-7xl px-6">
-    {/* Back button for TemplateSelection */}
-    <div className="mb-6">
-      <button
-        onClick={() => window.history.back()}
-        className="flex items-center text-slate-600 hover:text-[#354497] transition-colors duration-200"
-      >
-        <ArrowLeft className="h-5 w-5 mr-2" />
-        <span>Back</span>
-      </button>
-    </div>
-    <div className="mb-12 text-center">
-      <h2 className="text-3xl font-bold text-slate-900 mb-4">
-        Choose Your Agent Template
-      </h2>
-      <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-        Select a pre-configured template to get started with your agent
-      </p>
-    </div>
+const TemplateSelection = React.memo(
+  ({
+    agentTemplates,
+    onSelectAgent,
+  }: {
+    agentTemplates: AgentTemplate[];
+    onSelectAgent: (id: string) => void;
+  }) => {
+    const location = useLocation();
+    const isOnAgentsPage = location.pathname === "/agents";
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {agentTemplates.map((template) => (
-        <div
-          key={template.id}
-          onClick={() => onSelectAgent(template.id)}
-          className="group relative flex flex-col bg-white rounded-2xl p-8
-            border border-slate-200 hover:border-[#354497]
-            transition-all duration-300 ease-out
-            hover:shadow-xl hover:-translate-y-1
-            cursor-pointer overflow-hidden
-            min-h-[280px]"
-        >
-          {/* Solid top accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#354497]" />
+    return (
+      <div className="w-full max-w-7xl px-6">
+        {/* Conditionally hide the back button if the current path is /agents */}
+        {!isOnAgentsPage && (
+          <div className="mb-6 sm:mt-mt-64">
+            <button
+              onClick={() => window.history.back()}
+              className="flex items-center text-slate-600 hover:text-[#354497] transition-colors duration-200"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              <span>Back</span>
+            </button>
+          </div>
+        )}
 
-          <div className="flex flex-col gap-6">
-            <div className="p-3 bg-[#354497]/10 rounded-xl w-fit">
-              <Bot className="w-6 h-6 text-[#354497]" />
-            </div>
-            
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-slate-800 group-hover:text-[#354497] transition-colors duration-200">
-                {template.name}
-              </h3>
+        <div className="mb-12 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-4">
+            Choose Your Agent Template
+          </h2>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Select a pre-configured template to get started with your agent
+          </p>
+        </div>
 
-              <p className="text-slate-600 leading-relaxed">
-                {template.welcome_message}
-              </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {agentTemplates.map((template) => (
+            <div
+              key={template.id}
+              onClick={() => onSelectAgent(template.id)}
+              className="group relative flex flex-col bg-white rounded-2xl p-8
+                border border-slate-200 hover:border-[#354497]
+                transition-all duration-300 ease-out
+                hover:shadow-xl hover:-translate-y-1
+                cursor-pointer overflow-hidden
+                min-h-[280px]"
+            >
+              {/* Solid top accent line */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-[#354497]" />
 
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <Languages className="w-4 h-4" />
-                <span>{template.language}</span>
+              <div className="flex flex-col gap-6">
+                <div className="p-3 bg-[#354497]/10 rounded-xl w-fit">
+                  <Bot className="w-6 h-6 text-[#354497]" />
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-slate-800 group-hover:text-[#354497] transition-colors duration-200">
+                    {template.name}
+                  </h3>
+
+                  <p className="text-slate-600 leading-relaxed">
+                    {template.welcome_message}
+                  </p>
+
+                  <div className="flex items-center gap-3 text-sm text-slate-500">
+                    <Languages className="w-4 h-4" />
+                    <span>{template.language}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
+                <span className="inline-flex items-center text-[#354497] font-medium">
+                  Get Started
+                  <ArrowLeft className="w-4 h-4 ml-2 rotate-180" />
+                </span>
               </div>
             </div>
-          </div>
-
-          <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
-            <span className="inline-flex items-center text-[#354497] font-medium">
-              Get Started
-              <ArrowLeft className="w-4 h-4 ml-2 rotate-180" />
-            </span>
-          </div>
+          ))}
         </div>
-      ))}
-    </div>
-  </div>
-));
+      </div>
+    );
+  }
+);
 
 // ------------------- Child Component: AgentFormContent -------------------
-const AgentFormContent = React.memo(({
-  formData,
-  onInputChange,
-  onFileChange,
-  onSubmit,
-  onBack,
-  agentToEdit,
-  selectedAgentId,
-  selectedTemplate,
-}: {
-  formData: FormData;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onBack: () => void;
-  agentToEdit: AgentToEdit | null;
-  selectedAgentId: string | null;
-  selectedTemplate?: AgentTemplate;
-}) =>  
-  (
-  <div className="w-full max-w-3xl px-6">
-    <button
-      onClick={onBack}
-      className="group flex items-center text-slate-600 hover:text-[#354497] mb-8 transition-colors duration-200"
-    >
-      <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
-      {agentToEdit ? "Back to Agent List" : "Back"}
-    </button>
-    
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-      <div className="bg-[#354497] px-8 py-6">
-        <h2 className="text-2xl font-bold text-white mb-2">
-          {agentToEdit ? `Edit Agent: ${agentToEdit.name}` : "Configure Your Agent"}
-        </h2>
-        {!agentToEdit && selectedTemplate && (
-          <p className="text-white text-sm">
-            Based on {selectedTemplate.name}
-          </p>
+const AgentFormContent = React.memo(
+  ({
+    formData,
+    onInputChange,
+    onFileChange,
+    onSubmit,
+    onBack,
+    agentToEdit,
+    selectedAgentId,
+    selectedTemplate,
+  }: {
+    formData: FormData;
+    onInputChange: (
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => void;
+    onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onSubmit: (e: React.FormEvent) => void;
+    onBack: () => void;
+    agentToEdit: AgentToEdit | null;
+    selectedAgentId: string | null;
+    selectedTemplate?: AgentTemplate;
+  }) => {
+    const location = useLocation();
+    const isOnAgentsPage = location.pathname === "/agents";
+
+    return (
+      <div className="w-full max-w-3xl px-6 mt-10">
+        {/* Conditionally hide the back button if the current path is /agents */}
+        {!isOnAgentsPage && (
+          <button
+            onClick={onBack}
+            className="group flex items-center text-slate-600 hover:text-[#354497] mb-2 transition-colors duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+            {agentToEdit ? "Back to Agent List" : "Back"}
+          </button>
         )}
-      </div>
-      <form onSubmit={onSubmit} className="p-8 space-y-8">
-        <div className="space-y-6">
-          <div>
-            <label htmlFor="name" className="flex items-center text-sm font-medium text-slate-700 mb-2">
-              <Sparkles className="h-4 w-4 mr-2 text-[#354497]" />
-              Agent Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              id="name"
-              value={selectedTemplate.name}
-              onChange={onInputChange}
-              className="w-full rounded-xl border-slate-200 bg-slate-50 
-                focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
-              placeholder="Give your agent a memorable name"
-            />
-          </div>
 
-          <div>
-            <label htmlFor="welcome_message" className="flex items-center text-sm font-medium text-slate-700 mb-2">
-              <MessageSquare className="h-4 w-4 mr-2 text-[#354497]" />
-              Welcome Message
-            </label>
-            <textarea
-              name="welcome_message"
-              id="welcome_message"
-              rows={3}
-              value={selectedTemplate.welcome_message}
-              onChange={onInputChange}
-              className="w-full rounded-xl border-slate-200 bg-slate-50
-                focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
-              placeholder="Enter a friendly welcome message for your agent..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="agent_prompt" className="flex items-center text-sm font-medium text-slate-700 mb-2">
-              <Bot className="h-4 w-4 mr-2 text-[#354497]" />
-              Agent Prompt
-            </label>
-            <textarea
-              name="agent_prompt"
-              id="agent_prompt"
-              rows={4}
-              value={selectedTemplate.agent_prompt}
-              onChange={onInputChange}
-              className="w-full rounded-xl border-slate-200 bg-slate-50
-                focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
-              placeholder="Define how your agent should behave and respond..."
-            />
-          </div>
-
-          <div className="relative">
-            <label htmlFor="file" className="flex items-center text-sm font-medium text-slate-700 mb-2">
-              <FileText className="h-4 w-4 mr-2 text-[#354497]" />
-              Knowledge Base
-            </label>
-            <div className="relative">
-              <input
-                type="file"
-                name="file"
-                id="file"
-                accept=".pdf,.txt,.doc,.docx"
-                onChange={onFileChange}
-                className="w-full text-sm text-slate-700
-                  file:mr-4 file:py-2.5 file:px-4 
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-[#354497]/10 file:text-[#354497]
-                  hover:file:bg-[#354497]/20 transition-all duration-200
-                  focus:outline-none focus:ring-2 focus:ring-[#354497]/20 rounded-xl border border-slate-200 bg-slate-50"
-              />
-              <UploadCloud className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-            </div>
-            {agentToEdit && (
-              <p className="mt-2 text-sm text-slate-500">
-                Upload a new file only if you want to replace the existing one
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+          <div className="bg-[#354497] px-8 py-6">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {agentToEdit
+                ? `Edit Agent: ${agentToEdit.name}`
+                : "Configure Your Agent"}
+            </h2>
+            {!agentToEdit && selectedTemplate && (
+              <p className="text-white text-sm">
+                Based on {selectedTemplate.name}
               </p>
             )}
           </div>
-        </div>
+          <form onSubmit={onSubmit} className="p-8 space-y-8">
+            <div className="space-y-6">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="flex items-center text-sm font-medium text-slate-700 mb-2"
+                >
+                  <Sparkles className="h-4 w-4 mr-2 text-[#354497]" />
+                  Agent Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  id="name"
+                  value={formData.name}
+                  onChange={onInputChange}
+                  className="w-full rounded-xl border-slate-200 bg-slate-50
+                    focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
+                  placeholder="Give your agent a memorable name"
+                />
+              </div>
 
-        <div className="pt-4">
-          <button
-            type="submit"
-            className="w-full py-3 px-4 text-sm font-medium text-white 
-              bg-[#354497] rounded-xl hover:bg-[#354497] focus:ring-4 focus:ring-[#354497]/50 transition-all duration-200 transform hover:-translate-y-0.5"
-          >
-            {agentToEdit ? "Update Agent" : "Create Agent"}
-          </button>
+              <div>
+                <label
+                  htmlFor="welcome_message"
+                  className="flex items-center text-sm font-medium text-slate-700 mb-2"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2 text-[#354497]" />
+                  Welcome Message
+                </label>
+                <textarea
+                  name="welcome_message"
+                  id="welcome_message"
+                  rows={3}
+                  value={formData.welcome_message}
+                  onChange={onInputChange}
+                  className="w-full rounded-xl border-slate-200 bg-slate-50
+                    focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
+                  placeholder="Enter a friendly welcome message for your agent..."
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="agent_prompt"
+                  className="flex items-center text-sm font-medium text-slate-700 mb-2"
+                >
+                  <Bot className="h-4 w-4 mr-2 text-[#354497]" />
+                  Agent Prompt
+                </label>
+                <textarea
+                  name="agent_prompt"
+                  id="agent_prompt"
+                  rows={4}
+                  value={formData.agent_prompt}
+                  onChange={onInputChange}
+                  className="w-full rounded-xl border-slate-200 bg-slate-50
+                    focus:border-[#354497] focus:ring-2 focus:ring-[#354497]/20 transition-all duration-200"
+                  placeholder="Define how your agent should behave and respond..."
+                />
+              </div>
+
+              <div className="relative">
+                <label
+                  htmlFor="file"
+                  className="flex items-center text-sm font-medium text-slate-700 mb-2"
+                >
+                  <FileText className="h-4 w-4 mr-2 text-[#354497]" />
+                  Knowledge Base
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    name="file"
+                    id="file"
+                    accept=".pdf,.txt,.doc,.docx"
+                    onChange={onFileChange}
+                    className="w-full text-sm text-slate-700
+                      file:mr-4 file:py-2.5 file:px-4 
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-medium
+                      file:bg-[#354497]/10 file:text-[#354497]
+                      hover:file:bg-[#354497]/20 transition-all duration-200
+                      focus:outline-none focus:ring-2 focus:ring-[#354497]/20 rounded-xl border border-slate-200 bg-slate-50"
+                  />
+                  <UploadCloud className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+                </div>
+                {agentToEdit && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Upload a new file only if you want to replace the existing one
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <button
+                type="submit"
+                className="w-full py-3 px-4 text-sm font-medium text-white 
+                  bg-[#354497] rounded-xl hover:bg-[#354497] focus:ring-4 focus:ring-[#354497]/50 transition-all duration-200 transform hover:-translate-y-0.5"
+              >
+                {agentToEdit ? "Update Agent" : "Create Agent"}
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
-    </div>
-  </div>
-));
+      </div>
+    );
+  }
+);
 
 // ------------------- Validation Utility -------------------
 /**
@@ -294,23 +329,19 @@ const validateForm = (formData: FormData, isCreatingNew: boolean): boolean => {
     toast.error("Agent name is required.");
     return false;
   }
-
   if (!formData.welcome_message.trim()) {
     toast.error("Welcome message is required.");
     return false;
   }
-
   if (!formData.agent_prompt.trim()) {
     toast.error("Agent prompt is required.");
     return false;
   }
-
   // For creating a brand new agent, a file must be provided
   if (isCreatingNew && !formData.file) {
     toast.error("Knowledge Base file is required for new agents.");
     return false;
   }
-
   return true;
 };
 
@@ -385,7 +416,6 @@ const AgentPage: React.FC = () => {
       setLoadingTemplates(true);
       try {
         const templates = await getAgentTemplates();
-        console.log(templates)
         setAgentTemplates(templates);
       } catch (error) {
         console.error("Error fetching agent templates:", error);
@@ -407,8 +437,8 @@ const AgentPage: React.FC = () => {
         navigate("/forwarding-agents");
       }, 1000);
     } else {
-      // In create mode, clear the selected template to go back to the templates list
-        navigate("/forwarding-agents");
+      // In create mode, just navigate back to forwarding agents
+      navigate("/forwarding-agents");
       setSelectedAgentId(null);
     }
   }, [agentToEdit, navigate]);
@@ -446,7 +476,7 @@ const AgentPage: React.FC = () => {
       // ------------- Validate form data -------------
       if (!validateForm(formData, isCreatingNew)) {
         setIsLoading(false);
-        return; // Stop submission if validation fails
+        return;
       }
 
       try {
@@ -461,7 +491,6 @@ const AgentPage: React.FC = () => {
           const selectedTemplate = agentTemplates.find(
             (t) => t.id === selectedAgentId
           );
-          console.log(selectedTemplate)
           if (!selectedTemplate) {
             toast.error("Invalid template. Please try again.");
             setIsLoading(false);
@@ -531,7 +560,7 @@ const AgentPage: React.FC = () => {
       formData,
       clientId,
       handleBack,
-      user.id
+      user.id,
     ]
   );
 
@@ -549,19 +578,17 @@ const AgentPage: React.FC = () => {
   return (
     <div className="min-h-screen w-full flex flex-col items-center py-2 bg-slate-50 relative">
       <div className="w-full max-w-7xl px-6 mb-12">
-        <h1 className="text-4xl font-bold text-[#354497]">
-          {agentToEdit ? "Edit Agent" : "Create an Agent"}
-        </h1>
+  
       </div>
 
       {/* Show TemplateSelection if not editing and no template selected */}
       {!agentToEdit && !selectedAgentId ? (
-        <TemplateSelection 
-          agentTemplates={agentTemplates} 
-          onSelectAgent={handleSelectAgent} 
+        <TemplateSelection
+          agentTemplates={agentTemplates}
+          onSelectAgent={handleSelectAgent}
         />
       ) : (
-        <AgentFormContent 
+        <AgentFormContent
           formData={formData}
           onInputChange={handleInputChange}
           onFileChange={handleFileChange}

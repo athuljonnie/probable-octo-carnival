@@ -18,8 +18,9 @@ export const PhoneLogin = () => {
     setLoading(true);
 
     try {
+      console.log(phoneNumber)
       const result = await requestOtp(phoneNumber);
-      if (result.request_id) {
+      if (result.request_id || result.status === "success") {
         setRequestId(result.request_id);
         setShowOTP(true);
         toast.success('OTP sent successfully!');
@@ -196,3 +197,4 @@ export const PhoneLogin = () => {
 };
 
 export default PhoneLogin;
+ 

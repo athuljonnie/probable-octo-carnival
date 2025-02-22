@@ -21,13 +21,16 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleGoogleLogout = () => {
+const handleGoogleLogout = () => {
     googleLogout();
     appLogout();
     setGoogleUser(null);
     setAuthorized(false);
     setIsDropdownOpen(false);
-  };
+    
+    // Remove 'forwardingAgent' from localStorage
+    localStorage.removeItem("forwardingAgent");
+};
 
   const handleAppLogout = () => {
     appLogout();

@@ -43,8 +43,10 @@ const detectNetwork = async () => {
       response.data.vocallabsGetNetworkDetails.service_provider;
     console.log(detectedProvider);
 
-    if (providers.some((p) => p.provider === detectedProvider)) {
+    if (providers.some((p) => p.provider === detectedProvider.toLowerCase())) {
       // Do something if detectedProvider is in providers list
+      console.log(providers)
+      setSelectedProvider(detectedProvider);
     } else if (detectedProvider === "Reliance Jio") {
       setSelectedProvider("Jio");
     } else {
@@ -73,7 +75,7 @@ const detectNetwork = async () => {
     setIsAnimating(true);
     setProvider(selectedProvider);
 const providerData = {
-  selectedProvider: selectedProvider,
+  selectedProvider: selectedProvider.toLowerCase(),
   userId: user.id
 };
 
