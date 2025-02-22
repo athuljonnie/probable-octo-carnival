@@ -399,12 +399,11 @@ const AgentPage: React.FC = () => {
       setFormData({
         name: agentData.name || "",
         welcome_message: agentData.welcome_message || "",
-        agent_prompt: agentData.agent_prompt || "",
+        agent_prompt: agentData.context_prompt|| "",
         file: null,
       });
     } catch (error) {
       console.error("Error fetching agent data:", error);
-      toast.error("Failed to load agent data for editing");
     } finally {
       setLoadingAgentData(false);
     }

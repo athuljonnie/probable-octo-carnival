@@ -165,6 +165,8 @@ query MyQuery($id: uuid!) {
       name
     agent_prompt
     welcome_message
+    context_prompt
+
   }
 }
       `,
@@ -554,7 +556,7 @@ export async function removeCallForwarding(provider) {
       query,
       variables,
     });
-
+console.log(response)
     return response.data.data.vocallabs_call_forwarding_codes[0]; // Ensure you return the response data
 
   } catch (error) {
