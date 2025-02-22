@@ -296,15 +296,7 @@ const AgentConfigurationPage: React.FC = () => {
               <ChevronRight className="h-4 w-4 ml-1 transform transition-transform group-hover:translate-x-1" />
             </button>
           ) : (
-            <button
-              onClick={() => navigate('/add-agent')}
-              className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
-                hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
-            >
-              <RefreshCcw className="h-4 w-4 mr-2 text-[#4355BC]" />
-              <span>Add Agent</span>
-              <ChevronRight className="h-4 w-4 ml-1 transform transition-transform group-hover:translate-x-1" />
-            </button>
+       null
           )}
         </div>
 
