@@ -564,3 +564,74 @@ console.log(response)
     throw error; // Rethrow the error for better debugging
   }
 }
+
+
+export async function CompanyDetailsMutation({
+  company_name,
+  industry,
+  id
+}: {
+  company_name: string;
+  industry: string;
+  id: string;
+}) {
+  console.log(company_name, industry, id)
+  try {
+    const query = `
+     mutation MyMutation($company_name: String!, $industry: String!, $id: uuid!) {
+  insert_vocallabs_client(objects: {company_name: $company_name, industry: $industry, id: $id}, on_conflict: {constraint: client_pkey, update_columns: [company_name, industry]}) {
+    affected_rows
+  }
+}`;
+
+    const variables = {company_name, industry, id};
+    const response = await vocalLabApi.post('', {
+      query,
+      variables,
+    });
+console.log(response)
+    return response.data; // Ensure you return the response data
+
+  } catch (error) {
+    console.error("Error updating company details:", error);
+    throw error; 
+  }
+}
+
+
+// 1. Define the shape of each contact object to insert
+
+
+// 2. Define the function, properly destructuring the argument
+export async function SendContactsToDB(contactsData) {
+  console.log("Contacts to insert:", contactsData);
+
+  try {
+    // Define your mutation
+    const query = `
+      mutation MyMutation($objects: [vocallabs_users_contacts_data_insert_input!]!) {
+        insert_vocallabs_users_contacts_data(objects: $objects) {
+          affected_rows
+        }
+      }
+    `;
+
+    // Prepare the variables
+    const variables = {
+      objects: contactsData,
+    };
+
+    // Post to your Hasura or GraphQL API
+    // Ensure `vocalLabApi` is an Axios instance or a similar fetch wrapper
+    const response = await vocalLabApi.post("", {
+      query,
+      variables,
+    });
+
+    console.log("Hasura insert response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error sending contacts data:", error);
+    throw error;
+  }
+}

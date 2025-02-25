@@ -19,7 +19,7 @@ import {
 } from '../services/userServices';
 import { toast } from 'react-hot-toast';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
-
+import { useGoogleStore } from '../store/googleStore'
 import EditAgentPage from '../components/EditWrapper';
 
 // ---- Import the new helpers here
@@ -87,7 +87,7 @@ const AgentConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { isAndroid, isIOS, isMobile } = useDeviceInfo();
-
+  const{setGoogleUser} = useGoogleStore()
   const [localAgent, setLocalAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>('');
   const [isStatusChanged, setIsStatusChanged] = useState(false);
@@ -112,6 +112,7 @@ const AgentConfigurationPage: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await fetchPreviousMappings(user.id);
+      console.log(response)
       const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
       const ifUserHaveAgents = await getAgentsElseCreateOne(user.id);
       console.log(ifUserHaveAgents);
@@ -244,17 +245,18 @@ const AgentConfigurationPage: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await removeCallForwarding(user.provider);
-      console.log(response)
+      
       if (response && response.forwarding_code) {
         const telLink = `tel:${response.forwarding_code}`;
         setForwardingTelLink(telLink);
-
         if (isMobile) {
           window.location.href = telLink;
         } else {
           toast(`On desktop, please dial: ${response.forwarding_code}`);
         }
       }
+      
+setGoogleUser({ deleteContacts: true }); 
 
       // Remove call forwarding state for THIS user
       removeCallForwardingStateForUser(user.id);

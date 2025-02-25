@@ -41,6 +41,10 @@ const handleGoogleLogout = () => {
     navigate("/change-provider");
     setIsDropdownOpen(false);
   };
+  const handleCompanyDetails = () => {
+    navigate("/company-details");
+    setIsDropdownOpen(false);
+  };
 
   return (
     <nav 
@@ -115,6 +119,12 @@ const handleGoogleLogout = () => {
                     >
                       <span>Change Provider</span>
                     </button>
+                    {/* <button
+                      onClick={handleCompanyDetails}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                    >
+                      <span>Update Profile</span>
+                    </button> */}
                     <button
                       onClick={handleGoogleLogout}
                       className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2"

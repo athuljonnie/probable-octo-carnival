@@ -8,6 +8,7 @@ interface GoogleUser {
   picture?: string;
   sub?: string;
   accessToken?: string;
+  deleteContacts?: boolean;
 }
 
 interface GoogleState {
@@ -26,7 +27,10 @@ export const useGoogleStore = create<GoogleState>()(
       googleUser: null,
       isAuthorized: false,
       calendar: null,
-      setGoogleUser: (user) => set({ googleUser: user }),
+setGoogleUser: (user) =>
+        set((state) => ({
+          googleUser: state.googleUser ? { ...state.googleUser, ...user } : user, // ✅ Preserve existing properties
+        })),
       setAuthorized: (status) => set({ isAuthorized: status }),
       setCalendarAccess: (calendar) => set({ calendar }),
       reset: () => set({ googleUser: null, isAuthorized: false, calendar: null }),

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { PhoneLogin } from './components/PhoneLogin';
 import { GoogleAuth } from './components/GoogleAuth';
@@ -12,6 +12,7 @@ import Navbar from './components/Navbar';
 import EditAgentPage from "./components/EditWrapper";
 import ProviderPage from "./pages/ProviderPage";
 import ChangeProviderPage from "./pages/ChangeProviderPage";
+import CompanyDetails from './pages/CompanyDetails';
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -28,10 +29,10 @@ function App() {
   const isAuthenticated = user?.isAuthenticated;
   const isGoogleAuthorized = isAuthorized;
   
-  // Fix: Declare hasSelectedProvider at function scope
   let hasSelectedProvider = false;
+  let hasCompanyDetails = false;
   
-  // Fix: Handle localStorage check and provider validation
+  // Check for provider data
   const providerData = localStorage.getItem("providerData");
   if (providerData && user?.id) {
     try {
@@ -42,6 +43,16 @@ function App() {
     }
   }
 
+  // Check for company details
+  const companyData = localStorage.getItem("companyDetails");
+  if (companyData && user?.id) {
+    try {
+      const parsedCompanyData = JSON.parse(companyData);
+      hasCompanyDetails = parsedCompanyData.userId === user.id;
+    } catch (error) {
+      console.error("Error parsing company data:", error);
+    }
+  }
 
   const requireAuth = (Component: React.ElementType) => {
     return isAuthenticated && isGoogleAuthorized ? (
@@ -71,6 +82,7 @@ function App() {
               )
             }
           />
+
           {/* Provider Selection Route */}
           <Route
             path="/choose-provider"
@@ -86,13 +98,14 @@ function App() {
               )
             }
           />
+
           {/* Google Auth Route */}
           <Route
             path="/google-auth"
             element={
               isAuthenticated ? (
                 isGoogleAuthorized ? (
-                  <Navigate to="/agents" replace />
+                  <Navigate to="/company-details" replace />
                 ) : (
                   <GoogleAuth />
                 )
@@ -101,6 +114,23 @@ function App() {
               )
             }
           />
+
+          {/* Company Details Route */}
+          <Route
+            path="/company-details"
+            element={
+              isAuthenticated && isGoogleAuthorized ? (
+                hasCompanyDetails ? (
+                  <Navigate to="/agents" replace />
+                ) : (
+                  <CompanyDetails />
+                )
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+
           {/* Protected Routes */}
           <Route path="/agents" element={requireAuth(<AgentConfigurationPage />)} />
           <Route path="/add-agent" element={requireAuth(<EditAgentPage />)} />
