@@ -38,7 +38,7 @@ const handleGoogleLogout = () => {
   };
 
   const handleChangeProvider = () => {
-    navigate("/change-provider");
+    navigate("/change-provider?agent");
     setIsDropdownOpen(false);
   };
   const handleCompanyDetails = () => {

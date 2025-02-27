@@ -47,7 +47,7 @@ const ChangeProviderPage = () => {
       selectedProvider: provider.provider,
       userId: user.id
     }));
-    navigate('/google-auth');
+    navigate('/agents');
   };
 
   const handleBack = () => {

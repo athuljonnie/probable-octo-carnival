@@ -117,35 +117,37 @@ export const GoogleAuth = () => {
       console.log("Total Contacts Fetched:", allContacts.length);
 
       // 2. Transform contacts to the columns in vocallabs_users_contacts_data
-      if (allContacts.length > 0) {
-        const uniqueContacts: any[] = [];
+  if (allContacts.length > 0) {
+    const uniqueContacts: any[] = [];
 
-        allContacts.forEach((contact) => {
-          const displayName = contact.names?.[0]?.displayName || "";
-          const phoneNumbers = contact.phoneNumbers?.map((phone: any) => phone.value) || [];
+    allContacts.forEach((contact) => {
+        const displayName = contact.names?.[0]?.displayName || "";
+        const phoneNumbers = contact.phoneNumbers
+            ?.map((phone: any) => phone.value.replace(/\s+/g, "")) || []; // Trim spaces
 
-          // Check if this contact is already in uniqueContacts
-          const isDuplicate = uniqueContacts.some(
+        // Check if this contact is already in uniqueContacts
+        const isDuplicate = uniqueContacts.some(
             (existing) =>
-              existing.display_name === displayName && 
-              existing.phone_number.some((num: string) => phoneNumbers.includes(num))
-          );
+                existing.display_name === displayName &&
+                existing.phone_number.some((num: string) => phoneNumbers.includes(num))
+        );
 
-          if (!isDuplicate) {
+        if (!isDuplicate) {
             uniqueContacts.push({
-              client_id: user.id,
-              etag: contact.etag || "",
-              display_name: displayName,
-              phone_number: phoneNumbers,
+                client_id: user.id,
+                etag: contact.etag || "",
+                display_name: displayName,
+                phone_number: phoneNumbers,
             });
-          }
-        });
+        }
+    });
 
-        console.log("Filtered Unique Contacts:", uniqueContacts.length);
+    console.log("Filtered Unique Contacts:", uniqueContacts.length);
 
-        // 3. Send the transformed data to your backend
-        await SendContactsToDB(uniqueContacts);
-      }
+    // Send the transformed data to your backend
+    await SendContactsToDB(uniqueContacts);
+}
+
 
       setConnectStatus((prev) => ({ ...prev, contacts: true }));
     } catch (error) {

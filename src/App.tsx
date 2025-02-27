@@ -30,7 +30,6 @@ function App() {
   const isGoogleAuthorized = isAuthorized;
   
   let hasSelectedProvider = false;
-  let hasCompanyDetails = false;
   
   // Check for provider data
   const providerData = localStorage.getItem("providerData");
@@ -43,16 +42,7 @@ function App() {
     }
   }
 
-  // Check for company details
-  const companyData = localStorage.getItem("companyDetails");
-  if (companyData && user?.id) {
-    try {
-      const parsedCompanyData = JSON.parse(companyData);
-      hasCompanyDetails = parsedCompanyData.userId === user.id;
-    } catch (error) {
-      console.error("Error parsing company data:", error);
-    }
-  }
+  // We've removed the company details check since it's now optional
 
   const requireAuth = (Component: React.ElementType) => {
     return isAuthenticated && isGoogleAuthorized ? (
@@ -115,16 +105,12 @@ function App() {
             }
           />
 
-          {/* Company Details Route */}
+          {/* Company Details Route - Simplified to always show and let the component handle skipping */}
           <Route
             path="/company-details"
             element={
               isAuthenticated && isGoogleAuthorized ? (
-                hasCompanyDetails ? (
-                  <Navigate to="/agents" replace />
-                ) : (
-                  <CompanyDetails />
-                )
+                <CompanyDetails />
               ) : (
                 <Navigate to="/" replace />
               )
