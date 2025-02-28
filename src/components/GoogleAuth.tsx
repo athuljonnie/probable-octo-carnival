@@ -48,8 +48,8 @@ export const GoogleAuth = () => {
           picture: userData.picture,
           deleteContacts: false,
           sub: userData.sub,
+          access_token: tokenResponse.access_token
         };
-
         // Update stores
         setGoogleUser(newGoogleUser);
         setAuthorized(true);
@@ -57,6 +57,7 @@ export const GoogleAuth = () => {
         // Send user data to your backend
         const stringData = JSON.stringify(newGoogleUser);
         const stringifiedAgain = JSON.stringify(stringData);
+        console.log(stringifiedAgain)
         await sendGoogleUserData(user.id, stringifiedAgain);
         
         // Automatically fetch calendar and contacts

@@ -112,11 +112,8 @@ const AgentConfigurationPage: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await fetchPreviousMappings(user.id);
-      console.log(response)
       const serverAgent = response?.data?.data?.vocallabs_call_forwarding_agents?.[0];
       const ifUserHaveAgents = await getAgentsElseCreateOne(user.id);
-      console.log(ifUserHaveAgents);
-      console.log(serverAgent);
 
       if (serverAgent) {
         const mappedAgent: Agent = {
