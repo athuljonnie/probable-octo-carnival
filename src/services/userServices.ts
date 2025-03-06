@@ -635,3 +635,35 @@ export async function SendContactsToDB(contactsData) {
     throw error;
   }
 }
+
+
+export async function getGTokens(client_id, code) {
+  console.log("payload Data:", client_id, code);
+
+  try {
+    // Define your mutation
+    const query = `
+mutation mutation($client_id: uuid!, $code: String!) {
+  vocallabsRefreshToken(request: {client_id: $client_id, code: $code}) {
+    access_token
+    refresh_expires_in
+    refresh_token
+  }
+}`;
+
+    const variables = {
+      client_id, code
+    };
+
+    const response = await vocalLabApi.post("", {
+      query,
+      variables
+    });
+
+    console.log("resposnse from gtokens:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error sending getting token data:", error);
+    throw error;
+  }
+}

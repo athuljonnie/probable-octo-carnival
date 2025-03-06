@@ -8,6 +8,7 @@ interface GoogleUser {
   picture?: string;
   sub?: string;
   accessToken?: string;
+  refreshToken?: string;
   deleteContacts?: boolean;
 }
 
