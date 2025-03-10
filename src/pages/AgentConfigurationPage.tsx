@@ -21,7 +21,7 @@ import { toast } from 'react-hot-toast';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useGoogleStore } from '../store/googleStore'
 // import EditAgentPage from '../components/EditWrapper';
-
+import EditWrapper from '../components/EditWrapper'
 // ---- Import the new helpers here
 import {
   getCallForwardingStateForUser,
@@ -495,7 +495,7 @@ setGoogleUser({ deleteContacts: true });
             </div>
           </div>
         ) : (
-<h2>hello</h2>
+<EditWrapper/>
   )}
       </div>
     </div>
