@@ -244,7 +244,7 @@ const EditWrapper = ({ clientId }: Props) => {
             </div>
             
             <div className="flex flex-wrap justify-center gap-8">
-              {templates.map((template) => (
+            {templates.slice(0,2).map((template) => (
                 <div 
                   key={template.id} 
                   className="bg-white w-full md:w-80 rounded-2xl overflow-hidden border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col"
