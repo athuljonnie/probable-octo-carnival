@@ -57,10 +57,9 @@ export const GoogleAuth = () => {
         console.log("Google Auth Response:", codeResponse);
         
         // Exchange code for tokens via your backend
-        const tokenResponse = await getGTokens(user.id, codeResponse.code)
-        
-        const { access_token, refresh_token } = tokenResponse.data.vocallabsRefreshToken;
-        console.log(tokenResponse.data.vocallabsRefreshToken)
+       const redirect_url = "https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--5173--495c5120.local-credentialless.webcontainer-api.io"
+        const tokenResponse = await getGTokens(user.id, codeResponse.code, redirect_url)
+const { access_token, refresh_token = null } = tokenResponse.data.vocallabsRefreshToken;        
         // Set the tokens
         setAccessToken(access_token);
         setRefreshToken(refresh_token);

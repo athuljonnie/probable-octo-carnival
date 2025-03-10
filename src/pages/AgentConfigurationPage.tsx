@@ -20,7 +20,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useGoogleStore } from '../store/googleStore'
-import EditAgentPage from '../components/EditWrapper';
+// import EditAgentPage from '../components/EditWrapper';
 
 // ---- Import the new helpers here
 import {
@@ -241,7 +241,8 @@ const AgentConfigurationPage: React.FC = () => {
   const handleRemoveCallForwarding = async () => {
     setIsLoading(true);
     try {
-      const response = await removeCallForwarding(user.provider);
+      console.log(provider)
+      const response = await removeCallForwarding(provider);
       
       if (response && response.forwarding_code) {
         const telLink = `tel:${response.forwarding_code}`;
@@ -344,16 +345,7 @@ setGoogleUser({ deleteContacts: true });
                   {/* If user is iOS, show unconditional only; otherwise show all statuses */}
                   {isIOS ? (
                     <div className="space-y-4">
-                      <div className="p-3.5 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800 font-semibold mb-1">
-                          Conditional Call Forwarding Not Available on iOS
-                        </p>
-                        <p className="text-xs text-yellow-700">
-                          We’ve set your agent to “Unconditional” forwarding.
-                          You cannot change to “busy,” “unavailable,” or
-                          “out of reach” on iOS devices.
-                        </p>
-                      </div>
+                
 
                       {isStatusChanged && (
                         <button
@@ -503,9 +495,8 @@ setGoogleUser({ deleteContacts: true });
             </div>
           </div>
         ) : (
-          // If localAgent doesn't exist, show your "EditAgentPage" or fallback.
-          <EditAgentPage />
-        )}
+<h2>hello</h2>
+  )}
       </div>
     </div>
   );

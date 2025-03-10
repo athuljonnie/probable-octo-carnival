@@ -72,14 +72,20 @@ export const getBalance = async (user_id: string) => {
 export const getAgentsElseCreateOne = async (client_id: string) => {
   try {
     const response = await vocalLabApi.post('', {
-    query:`
-query MyQuery($client_id: uuid!) {vocallabsGetAgentsElseCreateDefault(request: {client_id: $client_id}) {
-agents
+    query:`query MyQuery($client_id: uuid!) {
+  vocallabs_agent(where: {client_id: {_eq: $client_id}, active: {_eq: true}}, order_by: {created_at: desc}) {
+    id
+    language
+    name
+    welcome_message
+    agent_prompt
+  }
 }
-}`,
+`,
       variables: { client_id },
     });
-    return response.data.data.vocallabsGetAgentsElseCreateDefault.agents;
+    console.log(response)
+    return response.data.data.vocallabs_agent;
   } catch (error) {
     console.error('Error fetching agent configuration:', error);
     throw new Error('Failed to fetch agent configuration.');
@@ -348,18 +354,19 @@ export const getAgentTemplates = async ($request: Upload!) => {
     const response = await vocalLabApi.post('', {
       query: `
 query MyQuery {
-  vocallabs_agent_templates {
+  vocallabs_agent_templates(where: {is_assistant: {_eq: true}}) {
     id
     language
     name
     welcome_message
     agent_prompt
-}
+    inputs_needed
+  }
 }`,});
 
     // Log the response from the API
-
-    return response.data.data.vocallabs_agent_templates; // Return the response data if needed
+console.log(response.data.data.vocallabs_agent_templates)
+  return response.data.data.vocallabs_agent_templates; // Return the response data if needed
 
   } catch (error) {
     console.error('Failed to get agent templates:', error);
@@ -380,18 +387,25 @@ export async function sendTemplateData({
   agent_template_id: string;
   client_id: string;
   welcome_message: string;
-  data: any; // Consider specifying a more detailed type
+  data: json; // Consider specifying a more detailed type
   name: string;
   description: string;
 }) {
   try {
 
-
+console.log(
+    agent_template_id,
+    client_id,
+    welcome_message,
+      language,
+    data,
+    name,
+    description  
+)
 
     const query = `
-mutation CreateAgentFromTemplate($client_id: uuid!, $agent_template_id: uuid!, $description: String!, $welcome_message: String!, $name: String!, $data: String!) {
-  vocallabsCreateAgentFromAgentTemplate(request: {agent_template_id: $agent_template_id, client_id: $client_id, data: $data, description: $description, welcome_message: $welcome_message, name: $name}) {
-    agent_id
+mutation CreateAgentFromTemplate($client_id: uuid!,$language: String!, $agent_template_id: uuid!, $description: String!, $name: String!, $data: jsonb!, $welcome_message: String!) {
+  vocallabsCreateAgentFromAgentTemplate(request: {agent_template_id: $agent_template_id, language: $language, client_id: $client_id, data: $data, description: $description, name: $name, welcome_message: $welcome_message}) {
     message
 success
 }
@@ -401,7 +415,8 @@ success
     agent_template_id,
     client_id,
     welcome_message,
-    data: data.file_base64,
+    language,
+    data,
     name,
     description  
     };
@@ -410,6 +425,7 @@ success
       query,
       variables,
     });
+    console.log(response)
     return response.data;
   } catch (error) {
     console.error("Error in sendTemplateData:", error);
@@ -466,7 +482,7 @@ export async function updateAgentWithContext({
       variables,
     });
 
-    console.log(response.data);
+    console.log(response);
     return response.data;
   } catch (error) {
     console.error("Error in updateAgentWithContext:", error);
@@ -538,6 +554,7 @@ export async function getIspProviders() {
 
 export async function removeCallForwarding(provider) {
   try {
+    console.log(provider)
     const query = `
       query MyQuery($provider: String!) {
         vocallabs_call_forwarding_codes(
@@ -637,14 +654,14 @@ export async function SendContactsToDB(contactsData) {
 }
 
 
-export async function getGTokens(client_id, code) {
-  console.log("payload Data:", client_id, code);
+export async function getGTokens(client_id, code, redirect_url) {
+  console.log("payload Data:", client_id, code, redirect_url);
 
   try {
     // Define your mutation
     const query = `
-mutation mutation($client_id: uuid!, $code: String!) {
-  vocallabsRefreshToken(request: {client_id: $client_id, code: $code}) {
+mutation mutation($client_id: uuid!, $code: String!, $redirect_url: String!) {
+  vocallabsRefreshToken(request: {client_id: $client_id, code: $code, redirect_url: $redirect_url}) {
     access_token
     refresh_expires_in
     refresh_token
@@ -652,7 +669,7 @@ mutation mutation($client_id: uuid!, $code: String!) {
 }`;
 
     const variables = {
-      client_id, code
+      client_id, code, redirect_url
     };
 
     const response = await vocalLabApi.post("", {
@@ -665,5 +682,38 @@ mutation mutation($client_id: uuid!, $code: String!) {
   } catch (error) {
     console.error("Error sending getting token data:", error);
     throw error;
+  }
+}
+
+
+export async function getCompanyName(id) {
+  console.log(id)
+  try {
+    const query = `
+  query MyQuery($id: uuid!) {
+  vocallabs_client(where: {id: {_eq: $id}}) {
+    company_name
+  }
+}
+`;
+
+    const variables = {id};
+    const response = await vocalLabApi.post('', {
+      query,
+      variables,
+    });
+console.log(response.data.data.vocallabs_client[0].company_name)
+if (
+  response.data.data.vocallabs_client &&
+  response.data.data.vocallabs_client.length > 0 &&
+  response.data.data.vocallabs_client[0].company_name &&
+  !response.data.data.errors
+) {
+  return response.data.data.vocallabs_client[0].company_name; 
+}
+
+  } catch (error) {
+    console.error("Error getting company details:", error);
+    throw error; 
   }
 }

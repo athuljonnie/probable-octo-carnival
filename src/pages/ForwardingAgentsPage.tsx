@@ -8,6 +8,9 @@ import {
   Search,
   Pencil,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
 } from "lucide-react";
 import SidePanel from "../components/SidePanel";
 import { useAuthStore } from "../store/authStore";
@@ -119,6 +122,109 @@ const AgentCard: React.FC<AgentCardProps> = ({
   );
 };
 
+// Pagination Component
+const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+  const maxPageButtons = 5;
+  
+  const getPageNumbers = () => {
+    if (totalPages <= maxPageButtons) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    const halfButtons = Math.floor(maxPageButtons / 2);
+    let startPage = Math.max(currentPage - halfButtons, 1);
+    let endPage = startPage + maxPageButtons - 1;
+    
+    if (endPage > totalPages) {
+      endPage = totalPages;
+      startPage = Math.max(endPage - maxPageButtons + 1, 1);
+    }
+    
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  };
+  
+  const pageNumbers = getPageNumbers();
+  
+  return (
+    <div className="flex items-center justify-center mt-10 mb-6">
+      <div className="flex items-center space-x-2 bg-white rounded-lg shadow-sm p-1 border border-gray-100">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className={`p-2 rounded-md transition-all ${
+            currentPage === 1
+              ? "text-gray-300 cursor-not-allowed"
+              : "text-gray-700 hover:bg-gray-50 hover:text-[#4355BC]"
+          }`}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        
+        {pageNumbers[0] > 1 && (
+          <>
+            <button
+              onClick={() => onPageChange(1)}
+              className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all 
+                ${currentPage === 1 ? "bg-[#4355BC] text-white" : "text-gray-700 hover:bg-gray-50 hover:text-[#4355BC]"}`}
+            >
+              1
+            </button>
+            {pageNumbers[0] > 2 && (
+              <button className="w-8 h-8 flex items-center justify-center text-gray-400">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            )}
+          </>
+        )}
+        
+        {pageNumbers.map(number => (
+          <button
+            key={number}
+            onClick={() => onPageChange(number)}
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all 
+              ${currentPage === number 
+                ? "bg-[#4355BC] text-white" 
+                : "text-gray-700 hover:bg-gray-50 hover:text-[#4355BC]"}`}
+          >
+            {number}
+          </button>
+        ))}
+        
+        {pageNumbers[pageNumbers.length - 1] < totalPages && (
+          <>
+            {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
+              <button className="w-8 h-8 flex items-center justify-center text-gray-400">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => onPageChange(totalPages)}
+              className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all 
+                ${currentPage === totalPages ? "bg-[#4355BC] text-white" : "text-gray-700 hover:bg-gray-50 hover:text-[#4355BC]"}`}
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+        
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded-md transition-all ${
+            currentPage === totalPages
+              ? "text-gray-300 cursor-not-allowed"
+              : "text-gray-700 hover:bg-gray-50 hover:text-[#4355BC]"
+          }`}
+          aria-label="Next page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ForwardingAgentsPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -127,10 +233,19 @@ const ForwardingAgentsPage = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [agentsPerPage] = useState(12);
 
   useEffect(() => {
     fetchDataOnMount();
   }, [user.id]);
+
+  useEffect(() => {
+    // Reset to first page when search query changes
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const fetchDataOnMount = async () => {
     setLoading(true);
@@ -139,14 +254,15 @@ const ForwardingAgentsPage = () => {
       if (!Array.isArray(agentResponse)) {
         agentResponse = [agentResponse];
       }
-console.log(agentResponse)
+      console.log(agentResponse);
+      
       const mappedAgents = agentResponse.map((ag: any) => ({
         ...ag,
         id: ag.agent_id ?? ag.id,
       }));
 
       const highlightData = await fetchPreviousMappings(user.id);
-      console.log(highlightData)
+      console.log(highlightData);
       const highlightObj =
        highlightData?.data?.data?.vocallabs_call_forwarding_agents?.[0]?.agent?.id;
       setAgents(mappedAgents);
@@ -217,13 +333,22 @@ console.log(agentResponse)
     );
   });
 
+  // Get current page agents
+  const indexOfLastAgent = currentPage * agentsPerPage;
+  const indexOfFirstAgent = indexOfLastAgent - agentsPerPage;
+  const currentAgents = filteredAgents.slice(indexOfFirstAgent, indexOfLastAgent);
+  const totalPages = Math.ceil(filteredAgents.length / agentsPerPage);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <SidePanel />
 
       <div className="flex-1 p-5 md:p-10 max-w-screen-xl mx-auto">
         {/* Header Section */}
-        <div className="flex flex-col md:pt-16  pt-16 sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
+        <div className="flex flex-col md:pt-16 pt-16 sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <button
@@ -237,45 +362,57 @@ console.log(agentResponse)
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
               Forwarding Agents
             </h1>
-{agents.length > 0 ? (
-  <p className="mt-2 text-gray-600 text-sm md:text-base">
-    Select an agent to activate or unset call forwarding
-  </p>
-) : (
-  <p className="mt-2 text-gray-600 text-sm md:text-base">
-    Create an agent to begin
-  </p>
-)}
-
-
+            {agents.length > 0 ? (
+              <p className="mt-2 text-gray-600 text-sm md:text-base">
+                Select an agent to activate or unset call forwarding
+              </p>
+            ) : (
+              <p className="mt-2 text-gray-600 text-sm md:text-base">
+                Create an agent to begin
+              </p>
+            )}
           </div>
 
           {agents.length > 0 && (
-          <button
-            onClick={() => navigate("/add-agent")}
-            className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
-              hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
-          >
-            <PlusCircle className="h-4 w-4 mr-2" />
-            <span>Add Agent</span>
-          </button>
-      )}
+            <button
+              onClick={() => navigate("/add-agent")}
+              className="inline-flex items-center px-5 py-2.5 bg-white text-[#4355BC] border border-gray-200 rounded-lg 
+                hover:bg-gray-50 transition-all duration-200 ease-in-out shadow-sm group"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              <span>Add Agent</span>
+            </button>
+          )}
         </div>
+        
         {/* Search Bar */}
-        {agents.length > 5 &&(
-        <div className="relative max-w-md mb-8">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
+        {agents.length > 5 && (
+          <div className="relative max-w-md mb-8">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search agents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4355BC]/30 focus:border-transparent text-sm text-gray-700 shadow-sm"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search agents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4355BC]/30 focus:border-transparent text-sm text-gray-700 shadow-sm"
-          />
-        </div>
-)}
+        )}
+        
+        {/* Results Summary */}
+        {filteredAgents.length > 0 && !loading && (
+          <div className="mb-4 flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              Showing {indexOfFirstAgent + 1}-{Math.min(indexOfLastAgent, filteredAgents.length)} of {filteredAgents.length} agents
+            </p>
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </div>
+          </div>
+        )}
+        
         {/* Content Section */}
         {loading ? (
           <Loader />
@@ -305,8 +442,8 @@ console.log(agentResponse)
             </button>
           </div>
         ) : (
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAgents.map((agent) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {currentAgents.map((agent) => (
               <AgentCard
                 key={agent.id}
                 agent={agent}
@@ -317,6 +454,16 @@ console.log(agentResponse)
             ))}
           </div>
         )}
+        
+        {/* Pagination */}
+        {filteredAgents.length > agentsPerPage && !loading && (
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={paginate}
+          />
+        )}
+        
         {/* Info Box */}
         {agents.length > 0 && (
           <div className="mt-8 p-4 rounded-lg bg-blue-50 border border-blue-100">

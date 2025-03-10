@@ -59,7 +59,7 @@ const handleGoogleLogout = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <a 
-              href="/" 
+              href="/agents" 
               className="flex items-center transform transition hover:scale-105"
             >
               <img
